@@ -1,209 +1,16 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/ajax/libs/supabase-js/2.39.0/supabase.min.js"></script>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    .glass-card {
-      background: rgba(255, 255, 255, 0.75);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.6);
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
-    }
-  </style>
-</head>
-<body class="bg-[#F5F5F7] text-[#1D1D1F] min-h-screen p-6 md:p-10 antialiased">
-
-  <!-- 보안 인증 모달 -->
-  <div id="auth-modal" class="fixed inset-0 bg-black/30 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    <div class="glass-card bg-white/90 p-8 rounded-3xl max-w-sm w-full text-center space-y-5 shadow-2xl">
-      <div class="w-12 h-12 bg-[#0071E3]/10 text-[#0071E3] rounded-full flex items-center justify-center mx-auto text-xl">🔒</div>
-      <div>
-        <h2 class="text-xl font-semibold tracking-tight text-[#1D1D1F]">보안 인증</h2>
-        <p class="text-xs text-[#86868B] mt-1">대시보드에 접근하려면 비밀번호를 입력하세요.</p>
-      </div>
-      <form id="auth-form" onsubmit="checkAuth(event)" class="space-y-3">
-        <input type="password" id="auth-passcode" placeholder="비밀번호 입력 (기본: 1234)" required
-          class="w-full bg-white border border-black/10 rounded-2xl px-4 py-3 text-center text-sm focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30">
-        <button type="submit" class="w-full bg-[#0071E3] text-white py-3 rounded-2xl text-sm font-medium hover:bg-[#0077ED] transition-all shadow-sm">
-          잠금 해제
-        </button>
-      </form>
-      <p id="auth-error" class="text-xs text-rose-500 hidden font-medium">비밀번호가 올바르지 않습니다.</p>
-    </div>
-  </div>
-
-  <!-- 메인 대시보드 화면 -->
-  <div class="max-w-5xl mx-auto space-y-8">
-    
-    <!-- Apple 헤더 (제목 변경: 🐝Bee) -->
-    <header class="flex justify-between items-end pb-2 border-b border-black/5">
-      <div>
-        <h1 class="text-3xl font-semibold tracking-tight text-[#1D1D1F]">🐝Bee</h1>
-        <p class="text-xs text-[#86868B] mt-1 font-medium">개인 프로젝트 & 타임라인 관리</p>
-      </div>
-      <div id="status-badge" class="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium border border-emerald-200/60">
-        ● 동기화 상태 확인 중...
-      </div>
-    </header>
-
-    <!-- 상단: 시작일 기준 타임라인 -->
-    <section class="glass-card rounded-3xl p-7">
-      <div class="flex justify-between items-center mb-6">
-        <div>
-          <h2 class="text-xs font-semibold text-[#86868B] tracking-wider uppercase">Project Timeline</h2>
-        </div>
-        <button onclick="toggleProjectModal(true)" class="text-xs bg-[#0071E3] text-white px-3.5 py-1.5 rounded-full font-medium hover:bg-[#0077ED] transition-all">
-          + 새 프로젝트 추가
-        </button>
-      </div>
-      <div class="relative my-4">
-        <div class="absolute top-1/2 left-0 right-0 h-[2px] bg-black/5 -translate-y-1/2"></div>
-        <div id="timeline-container" class="relative z-10 flex justify-around items-center overflow-x-auto py-3 scrollbar-none gap-6">
-          <!-- JS에서 타임라인 노드 자동 생성 -->
-        </div>
-      </div>
-    </section>
-
-    <!-- 하단: 세부 정보 및 체크리스트 -->
-    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      
-      <!-- 프로젝트 상세 카드 -->
-      <div class="glass-card rounded-3xl p-7 flex flex-col justify-between">
-        <div>
-          <div class="flex justify-between items-center">
-            <span id="proj-category" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-black/5 text-[#515154]"></span>
-            <div id="proj-action-btns" class="flex gap-1.5">
-              <button onclick="openEditProjectModal()" 
-                class="text-xs text-[#0071E3] hover:text-[#0077ED] font-medium px-2.5 py-1 rounded-full bg-blue-50 hover:bg-blue-100 border border-blue-200/60 transition-all">
-                수정
-              </button>
-              <button onclick="deleteCurrentProject()" 
-                class="text-xs text-rose-500 hover:text-rose-600 font-medium px-2.5 py-1 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200/60 transition-all">
-                삭제
-              </button>
-            </div>
-          </div>
-          <h3 id="proj-title" class="text-2xl font-semibold tracking-tight mt-4 text-[#1D1D1F]"></h3>
-          <p id="proj-date" class="text-xs text-[#86868B] mt-2 font-medium"></p>
-        </div>
-        <div class="mt-8 pt-6 border-t border-black/5">
-          <div class="flex justify-between text-xs font-medium mb-2">
-            <span class="text-[#86868B]">진행률</span>
-            <span id="proj-progress-text" class="text-[#0071E3] font-semibold">0%</span>
-          </div>
-          <div class="w-full bg-black/5 h-2 rounded-full overflow-hidden">
-            <div id="proj-progress-bar" class="bg-[#0071E3] h-full transition-all duration-500 ease-out" style="width: 0%"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 체크리스트 카드 -->
-      <div class="md:col-span-2 glass-card rounded-3xl p-7">
-        <h3 class="text-base font-semibold text-[#1D1D1F] mb-4 tracking-tight">Checklist</h3>
-        
-        <form id="task-form" class="flex gap-2 mb-6">
-          <input type="text" id="task-input" placeholder="새로운 할 일 추가..." required
-            class="flex-1 bg-white border border-black/10 rounded-2xl px-4 py-2.5 text-sm text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition-all">
-          <button type="submit" class="bg-[#0071E3] hover:bg-[#0077ED] text-white px-5 py-2.5 rounded-2xl text-sm font-medium transition-all shadow-sm">
-            추가
-          </button>
-        </form>
-
-        <div id="task-list" class="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-          <!-- JS에서 체크리스트 목록 생성 -->
-        </div>
-      </div>
-
-    </section>
-  </div>
-
-  <!-- 새 프로젝트 추가 모달 -->
-  <div id="project-modal" class="fixed inset-0 bg-black/30 backdrop-blur-md z-40 hidden flex items-center justify-center p-4">
-    <div class="glass-card bg-white/95 p-8 rounded-3xl max-w-md w-full space-y-5 shadow-2xl">
-      <div class="flex justify-between items-center">
-        <h3 class="text-lg font-semibold text-[#1D1D1F]">새 프로젝트 추가</h3>
-        <button onclick="toggleProjectModal(false)" class="text-[#86868B] hover:text-[#1D1D1F] text-sm">✕</button>
-      </div>
-      <form id="project-form" onsubmit="addProject(event)" class="space-y-4">
-        <div>
-          <label class="block text-xs font-medium text-[#86868B] mb-1">프로젝트명</label>
-          <input type="text" id="new-proj-title" required placeholder="예: 신규 웹사이트 디자인"
-            class="w-full bg-white border border-black/10 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-[#86868B] mb-1">카테고리</label>
-          <input type="text" id="new-proj-category" placeholder="예: 디자인 / 개발 / 개인"
-            class="w-full bg-white border border-black/10 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20">
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-[#86868B] mb-1">시작일</label>
-            <input type="date" id="new-proj-start" required
-              class="w-full bg-white border border-black/10 rounded-2xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-[#86868B] mb-1">마감일</label>
-            <input type="date" id="new-proj-end" required
-              class="w-full bg-white border border-black/10 rounded-2xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20">
-          </div>
-        </div>
-        <div class="flex gap-2 pt-2">
-          <button type="button" onclick="toggleProjectModal(false)" class="flex-1 bg-black/5 hover:bg-black/10 text-[#515154] py-2.5 rounded-2xl text-sm font-medium transition-all">취소</button>
-          <button type="submit" class="flex-1 bg-[#0071E3] hover:bg-[#0077ED] text-white py-2.5 rounded-2xl text-sm font-medium transition-all shadow-sm">생성</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- 프로젝트 수정 모달 -->
-  <div id="edit-project-modal" class="fixed inset-0 bg-black/30 backdrop-blur-md z-40 hidden flex items-center justify-center p-4">
-    <div class="glass-card bg-white/95 p-8 rounded-3xl max-w-md w-full space-y-5 shadow-2xl">
-      <div class="flex justify-between items-center">
-        <h3 class="text-lg font-semibold text-[#1D1D1F]">프로젝트 정보 수정</h3>
-        <button onclick="toggleEditProjectModal(false)" class="text-[#86868B] hover:text-[#1D1D1F] text-sm">✕</button>
-      </div>
-      <form id="edit-project-form" onsubmit="updateProject(event)" class="space-y-4">
-        <div>
-          <label class="block text-xs font-medium text-[#86868B] mb-1">프로젝트명</label>
-          <input type="text" id="edit-proj-title" required
-            class="w-full bg-white border border-black/10 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20">
-        </div>
-        <div>
-          <label class="block text-xs font-medium text-[#86868B] mb-1">카테고리</label>
-          <input type="text" id="edit-proj-category"
-            class="w-full bg-white border border-black/10 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20">
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-xs font-medium text-[#86868B] mb-1">시작일</label>
-            <input type="date" id="edit-proj-start" required
-              class="w-full bg-white border border-black/10 rounded-2xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-[#86868B] mb-1">마감일</label>
-            <input type="date" id="edit-proj-end" required
-              class="w-full bg-white border border-black/10 rounded-2xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20">
-          </div>
-        </div>
-        <div class="flex gap-2 pt-2">
-          <button type="button" onclick="toggleEditProjectModal(false)" class="flex-1 bg-black/5 hover:bg-black/10 text-[#515154] py-2.5 rounded-2xl text-sm font-medium transition-all">취소</button>
-          <button type="submit" class="flex-1 bg-[#0071E3] hover:bg-[#0077ED] text-white py-2.5 rounded-2xl text-sm font-medium transition-all shadow-sm">저장</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script>
+<script>
     const DASHBOARD_PASSCODE = "0410";
     const SUPABASE_URL = "https://flyjpdjlpiazdqnewrub.supabase.co";
     const SUPABASE_KEY = "sb_publishable_xEsBEYX5vwGK9-XKKYj7bg_3DE6txaK";
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    let supabaseClient = null;
+    try {
+      if (SUPABASE_URL && SUPABASE_URL.trim() !== "") {
+        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      }
+    } catch (e) {
+      console.error("Supabase 클라이언트 생성 실패:", e);
+    }
 
     let projects = [];
     let selectedId = null;
@@ -229,13 +36,17 @@
 
     async function init() {
       if (supabaseClient) {
-        document.getElementById('status-badge').innerText = '● Supabase 실시간 동기화';
         await fetchProjectsFromSupabase();
       } else {
-        document.getElementById('status-badge').className = 'text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-600 font-medium border border-blue-200/60';
-        document.getElementById('status-badge').innerText = '● 로컬 저장소 영구 동기화중';
+        setLocalStatusBadge();
         loadFromLocalStorage();
       }
+    }
+
+    function setLocalStatusBadge() {
+      const badge = document.getElementById('status-badge');
+      badge.className = 'text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-600 font-medium border border-blue-200/60';
+      badge.innerText = '● 로컬 저장소 영구 동기화중';
     }
 
     function loadFromLocalStorage() {
@@ -264,19 +75,30 @@
     }
 
     async function fetchProjectsFromSupabase() {
-      const { data: projData } = await supabaseClient.from('projects').select('*').order('start_date', { ascending: true });
-      const { data: taskData } = await supabaseClient.from('tasks').select('*');
+      try {
+        const { data: projData, error: projError } = await supabaseClient.from('projects').select('*').order('start_date', { ascending: true });
+        const { data: taskData, error: taskError } = await supabaseClient.from('tasks').select('*');
 
-      if (projData) {
+        if (projError) throw projError;
+
         projects = projData.map(p => ({
           ...p,
           tasks: taskData ? taskData.filter(t => t.project_id === p.id) : []
         }));
+
+        const badge = document.getElementById('status-badge');
+        badge.className = 'text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium border border-emerald-200/60';
+        badge.innerText = '● Supabase 실시간 동기화';
         render();
+      } catch (err) {
+        console.error("Supabase 연결 실패:", err);
+        alert("Supabase DB 연결 실패! 로컬 저장소 모드로 자동 전환합니다.\n(이유: " + (err.message || "권한/네트워크 오류") + ")");
+        supabaseClient = null;
+        setLocalStatusBadge();
+        loadFromLocalStorage();
       }
     }
 
-    // --- 타임라인 렌더링 (동일 날짜 조건부 화살표 처리) ---
     function render() {
       projects.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
 
@@ -308,7 +130,6 @@
         btn.className = 'flex flex-col items-center group focus:outline-none flex-shrink-0 px-2';
         btn.onclick = () => { selectedId = p.id; render(); };
         
-        // 시작일과 마감일이 같은 경우 화살표 배지를 숨김
         const endDateBadge = isSameDate ? '' : `
           <div class="h-[2px] w-3 ${isSelected ? 'bg-[#0071E3]' : 'bg-black/15'}"></div>
           <div class="text-[10px] font-medium px-2 py-0.5 rounded-full transition-all flex items-center gap-1 ${
@@ -340,7 +161,6 @@
       document.getElementById('proj-title').innerText = current.title;
       document.getElementById('proj-category').innerText = current.category || '일반';
       
-      // 하단 카드 기간 표시: 시작일과 마감일이 같으면 단일 날짜만 표기
       document.getElementById('proj-date').innerText = current.start_date === current.end_date
         ? `일자: ${current.start_date}`
         : `기간: ${current.start_date} ~ ${current.end_date}`;
@@ -394,20 +214,25 @@
       const startDate = document.getElementById('edit-proj-start').value;
       const endDate = document.getElementById('edit-proj-end').value;
 
-      if (supabaseClient) {
-        await supabaseClient.from('projects').update({
-          title, category, start_date: startDate, end_date: endDate
-        }).eq('id', selectedId);
-        await fetchProjectsFromSupabase();
-      } else {
-        const current = projects.find(p => p.id === selectedId);
-        if (current) {
-          current.title = title;
-          current.category = category;
-          current.start_date = startDate;
-          current.end_date = endDate;
-          saveToLocalStorage();
+      try {
+        if (supabaseClient) {
+          const { error } = await supabaseClient.from('projects').update({
+            title, category, start_date: startDate, end_date: endDate
+          }).eq('id', selectedId);
+          if (error) throw error;
+          await fetchProjectsFromSupabase();
+        } else {
+          const current = projects.find(p => p.id === selectedId);
+          if (current) {
+            current.title = title;
+            current.category = category;
+            current.start_date = startDate;
+            current.end_date = endDate;
+            saveToLocalStorage();
+          }
         }
+      } catch (err) {
+        alert("수정 중 오류 발생: " + err.message);
       }
 
       toggleEditProjectModal(false);
@@ -417,15 +242,20 @@
       const current = projects.find(p => p.id === selectedId);
       if (!current) return;
 
-      if (confirm(`'${current.title}' 프로젝트를 삭제하시겠습니까?\n포함된 세부 체크리스트도 함께 삭제됩니다.`)) {
-        if (supabaseClient) {
-          await supabaseClient.from('projects').delete().eq('id', selectedId);
-          selectedId = null;
-          await fetchProjectsFromSupabase();
-        } else {
-          projects = projects.filter(p => p.id !== selectedId);
-          selectedId = null;
-          saveToLocalStorage();
+      if (confirm(`'${current.title}' 프로젝트를 삭제하시겠습니까?`)) {
+        try {
+          if (supabaseClient) {
+            const { error } = await supabaseClient.from('projects').delete().eq('id', selectedId);
+            if (error) throw error;
+            selectedId = null;
+            await fetchProjectsFromSupabase();
+          } else {
+            projects = projects.filter(p => p.id !== selectedId);
+            selectedId = null;
+            saveToLocalStorage();
+          }
+        } catch (err) {
+          alert("삭제 중 오류 발생: " + err.message);
         }
       }
     }
@@ -443,24 +273,29 @@
       const startDate = document.getElementById('new-proj-start').value;
       const endDate = document.getElementById('new-proj-end').value;
 
-      if (supabaseClient) {
-        const { data } = await supabaseClient.from('projects').insert([{
-          title, category, start_date: startDate, end_date: endDate
-        }]).select();
-        if (data) selectedId = data[0].id;
-        await fetchProjectsFromSupabase();
-      } else {
-        const newProj = {
-          id: Date.now().toString(),
-          title,
-          category,
-          start_date: startDate,
-          end_date: endDate,
-          tasks: []
-        };
-        projects.push(newProj);
-        selectedId = newProj.id;
-        saveToLocalStorage();
+      try {
+        if (supabaseClient) {
+          const { data, error } = await supabaseClient.from('projects').insert([{
+            title, category, start_date: startDate, end_date: endDate
+          }]).select();
+          if (error) throw error;
+          if (data && data.length > 0) selectedId = data[0].id;
+          await fetchProjectsFromSupabase();
+        } else {
+          const newProj = {
+            id: Date.now().toString(),
+            title,
+            category,
+            start_date: startDate,
+            end_date: endDate,
+            tasks: []
+          };
+          projects.push(newProj);
+          selectedId = newProj.id;
+          saveToLocalStorage();
+        }
+      } catch (err) {
+        alert("프로젝트 생성 오류: " + err.message);
       }
 
       document.getElementById('project-form').reset();
@@ -468,25 +303,35 @@
     }
 
     async function toggleTask(taskId, currentStatus) {
-      if (supabaseClient) {
-        await supabaseClient.from('tasks').update({ completed: !currentStatus }).eq('id', taskId);
-        await fetchProjectsFromSupabase();
-      } else {
-        const current = projects.find(p => p.id === selectedId);
-        const task = current.tasks.find(t => t.id === taskId);
-        if (task) task.completed = !task.completed;
-        saveToLocalStorage();
+      try {
+        if (supabaseClient) {
+          const { error } = await supabaseClient.from('tasks').update({ completed: !currentStatus }).eq('id', taskId);
+          if (error) throw error;
+          await fetchProjectsFromSupabase();
+        } else {
+          const current = projects.find(p => p.id === selectedId);
+          const task = current.tasks.find(t => t.id === taskId);
+          if (task) task.completed = !task.completed;
+          saveToLocalStorage();
+        }
+      } catch (err) {
+        alert("체크 상태 변경 오류: " + err.message);
       }
     }
 
     async function deleteTask(taskId) {
-      if (supabaseClient) {
-        await supabaseClient.from('tasks').delete().eq('id', taskId);
-        await fetchProjectsFromSupabase();
-      } else {
-        const current = projects.find(p => p.id === selectedId);
-        current.tasks = current.tasks.filter(t => t.id !== taskId);
-        saveToLocalStorage();
+      try {
+        if (supabaseClient) {
+          const { error } = await supabaseClient.from('tasks').delete().eq('id', taskId);
+          if (error) throw error;
+          await fetchProjectsFromSupabase();
+        } else {
+          const current = projects.find(p => p.id === selectedId);
+          current.tasks = current.tasks.filter(t => t.id !== taskId);
+          saveToLocalStorage();
+        }
+      } catch (err) {
+        alert("삭제 중 오류 발생: " + err.message);
       }
     }
 
@@ -496,19 +341,22 @@
       const text = input.value.trim();
       if (!text || !selectedId) return;
 
-      if (supabaseClient) {
-        await supabaseClient.from('tasks').insert([{ project_id: selectedId, text, completed: false }]);
-        input.value = '';
-        await fetchProjectsFromSupabase();
-      } else {
-        const current = projects.find(p => p.id === selectedId);
-        if (current) {
-          current.tasks.push({ id: Date.now().toString(), text, completed: false });
+      try {
+        if (supabaseClient) {
+          const { error } = await supabaseClient.from('tasks').insert([{ project_id: selectedId, text, completed: false }]);
+          if (error) throw error;
           input.value = '';
-          saveToLocalStorage();
+          await fetchProjectsFromSupabase();
+        } else {
+          const current = projects.find(p => p.id === selectedId);
+          if (current) {
+            current.tasks.push({ id: Date.now().toString(), text, completed: false });
+            input.value = '';
+            saveToLocalStorage();
+          }
         }
+      } catch (err) {
+        alert("할 일 추가 중 오류 발생: " + err.message);
       }
     };
   </script>
-</body>
-</html>
