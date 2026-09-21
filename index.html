@@ -2,22 +2,38 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-    .glass-card {
-      background: rgba(255, 255, 255, 0.75);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.6);
-      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
-    }
-    .scrollbar-none::-webkit-scrollbar { display: none; }
-    .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
-  </style>
+  body { 
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    padding-bottom: env(safe-area-inset-bottom, 1rem); /* 아이폰 하단 홈 바 여백 대응 */
+  }
+  .glass-card {
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
+  }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+  
+  /* 아이폰 입력 시 화면 자동 확대 방지 (최소 16px 유지) */
+  input, button, select, textarea {
+    font-size: 16px !important;
+  }
+  
+  /* 드래그 중인 아이템 스타일 */
+  .dragging {
+    opacity: 0.4;
+    transform: scale(0.98);
+  }
+</style>
 </head>
 <body class="bg-[#F5F5F7] text-[#1D1D1F] min-h-screen p-4 md:p-10 antialiased">
 
@@ -441,15 +457,32 @@
       if (!current.tasks || current.tasks.length === 0) {
         taskList.innerHTML = `<p class="text-xs text-[#86868B] text-center py-6">등록된 할 일이 없습니다.</p>`;
       } else {
-        current.tasks.forEach(t => {
+        current.tasks.forEach((t, idx) => {
           const div = document.createElement('div');
-          div.className = 'flex items-center justify-between p-3.5 rounded-2xl bg-white/80 border border-black/5 shadow-2xs hover:border-black/10 transition-all';
+          div.className = 'flex items-center justify-between p-3.5 rounded-2xl bg-white/80 border border-black/5 shadow-2xs hover:border-black/10 transition-all touch-none select-none';
+          div.setAttribute('draggable', 'true');
+          
+          // PC 마우스 드래그 이벤트
+          div.ondragstart = (e) => handleDragStart(e, idx);
+          div.ondragover = (e) => handleDragOver(e);
+          div.ondrop = (e) => handleDrop(e, idx);
+          div.ondragend = (e) => handleDragEnd(e);
+
+          // 모바일 터치 드래그 이벤트
+          div.ontouchstart = (e) => handleTouchStart(e, idx);
+          div.ontouchmove = (e) => handleTouchMove(e);
+          div.ontouchend = (e) => handleTouchEnd(e);
+
           div.innerHTML = `
-            <label class="flex items-center gap-3 cursor-pointer flex-1">
-              <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="toggleTask('${t.id}', ${t.completed})" 
-                class="w-4 h-4 rounded-md text-[#0071E3] focus:ring-0 border-black/20 accent-[#0071E3]">
-              <span class="text-sm font-medium ${t.completed ? 'line-through text-[#86868B]' : 'text-[#1D1D1F]'}">${t.text}</span>
-            </label>
+            <div class="flex items-center gap-3 flex-1">
+              <!-- 드래그 핸들 아이콘 -->
+              <span class="cursor-grab active:cursor-grabbing text-[#86868B] hover:text-[#1D1D1F] px-1 text-sm font-bold">⋮⋮</span>
+              <label class="flex items-center gap-3 cursor-pointer flex-1">
+                <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="toggleTask('${t.id}', ${t.completed})" 
+                  class="w-4 h-4 rounded-md text-[#0071E3] focus:ring-0 border-black/20 accent-[#0071E3]">
+                <span class="text-sm font-medium ${t.completed ? 'line-through text-[#86868B]' : 'text-[#1D1D1F]'}">${t.text}</span>
+              </label>
+            </div>
             <button onclick="deleteTask('${t.id}')" class="text-xs text-[#86868B] hover:text-rose-500 font-medium px-2 py-1">삭제</button>
           `;
           taskList.appendChild(div);
@@ -549,6 +582,78 @@
         if (show) modal.classList.remove('hidden');
         else modal.classList.add('hidden');
       }
+    }
+
+    // === 드래그 앤 드롭 (순서 변경) 로직 ===
+    let draggedTaskIdx = null;
+    let touchStartTaskIdx = null;
+    let touchDraggedElem = null;
+
+    // PC 드래그 이벤트
+    function handleDragStart(e, index) {
+      draggedTaskIdx = index;
+      e.currentTarget.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    }
+
+    function handleDrop(e, targetIdx) {
+      e.preventDefault();
+      if (draggedTaskIdx === null || draggedTaskIdx === targetIdx) return;
+      reorderTasks(draggedTaskIdx, targetIdx);
+    }
+
+    function handleDragEnd(e) {
+      e.currentTarget.classList.remove('dragging');
+      draggedTaskIdx = null;
+    }
+
+    // 모바일 터치 드래그 이벤트
+    function handleTouchStart(e, index) {
+      touchStartTaskIdx = index;
+      touchDraggedElem = e.currentTarget;
+      touchDraggedElem.classList.add('dragging');
+    }
+
+    function handleTouchMove(e) {
+      if (!touchDraggedElem) return;
+      // 터치 이동 중 스크롤 방지
+      e.preventDefault();
+    }
+
+    function handleTouchEnd(e) {
+      if (touchStartTaskIdx === null || !touchDraggedElem) return;
+      
+      const touch = e.changedTouches[0];
+      const targetElem = document.elementFromPoint(touch.clientX, touch.clientY);
+      const taskContainer = targetElem ? targetElem.closest('[draggable="true"]') : null;
+
+      if (taskContainer && taskContainer.parentNode === touchDraggedElem.parentNode) {
+        const children = Array.from(touchDraggedElem.parentNode.children);
+        const targetIdx = children.indexOf(taskContainer);
+        if (targetIdx !== -1 && targetIdx !== touchStartTaskIdx) {
+          reorderTasks(touchStartTaskIdx, targetIdx);
+        }
+      }
+
+      touchDraggedElem.classList.remove('dragging');
+      touchStartTaskIdx = null;
+      touchDraggedElem = null;
+    }
+
+    // 순서 변경 실행 함수
+    function reorderTasks(fromIdx, toIdx) {
+      const current = projects.find(p => p.id === selectedId);
+      if (!current || !current.tasks) return;
+
+      const [movedTask] = current.tasks.splice(fromIdx, 1);
+      current.tasks.splice(toIdx, 0, movedTask);
+
+      renderMain();
     }
 
     // 프로젝트 생성
