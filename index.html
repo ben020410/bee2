@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/ajax/libs/supabase-js/2.39.0/supabase.min.js"></script>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
     .glass-card {
       background: rgba(255, 255, 255, 0.75);
       backdrop-filter: blur(20px);
@@ -15,9 +15,11 @@
       border: 1px solid rgba(255, 255, 255, 0.6);
       box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
     }
+    .scrollbar-none::-webkit-scrollbar { display: none; }
+    .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
-<body class="bg-[#F5F5F7] text-[#1D1D1F] min-h-screen p-6 md:p-10 antialiased">
+<body class="bg-[#F5F5F7] text-[#1D1D1F] min-h-screen p-4 md:p-10 antialiased">
 
   <!-- 보안 인증 모달 -->
   <div id="auth-modal" class="fixed inset-0 bg-black/30 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -27,7 +29,7 @@
         <h2 class="text-xl font-semibold tracking-tight text-[#1D1D1F]">보안 인증</h2>
         <p class="text-xs text-[#86868B] mt-1">대시보드에 접근하려면 비밀번호를 입력하세요.</p>
       </div>
-      <form id="auth-form" onsubmit="checkAuth(event)" class="space-y-3">
+      <form onsubmit="checkAuth(event)" class="space-y-3">
         <input type="password" id="auth-passcode" placeholder="비밀번호 입력" required
           class="w-full bg-white border border-black/10 rounded-2xl px-4 py-3 text-center text-sm focus:outline-none focus:ring-2 focus:ring-[#0071E3]/30">
         <button type="submit" class="w-full bg-[#0071E3] text-white py-3 rounded-2xl text-sm font-medium hover:bg-[#0077ED] transition-all shadow-sm">
@@ -39,63 +41,57 @@
   </div>
 
   <!-- 메인 대시보드 화면 -->
-  <div class="max-w-5xl mx-auto space-y-8">
+  <div class="max-w-5xl mx-auto space-y-6">
     
-    <!-- Apple 헤더 -->
-    <header class="flex justify-between items-end pb-2 border-b border-black/5">
+    <!-- Apple 스타일 헤더 -->
+    <header class="flex justify-between items-end pb-3 border-b border-black/5">
       <div>
-        <h1 class="text-3xl font-semibold tracking-tight text-[#1D1D1F]">🐝Bee</h1>
-        <p class="text-xs text-[#86868B] mt-1 font-medium">개인 프로젝트 & 타임라인 관리</p>
+        <h1 class="text-3xl font-bold tracking-tight text-[#1D1D1F]">🐝Bee</h1>
+        <p class="text-xs text-[#86868B] mt-1 font-medium">프로젝트 & 실시간 타임라인 대시보드</p>
       </div>
-      <div id="status-badge" class="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium border border-emerald-200/60">
-        ● 동기화 상태 확인 중...
+      <div id="status-badge" class="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium border border-emerald-200/60 flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 실시간 연결됨
       </div>
     </header>
 
-    <!-- 상단: 시작일 기준 타임라인 -->
-    <section class="glass-card rounded-3xl p-7">
+    <!-- 가로 타임라인 섹션 -->
+    <section class="glass-card rounded-3xl p-6 md:p-8">
       <div class="flex justify-between items-center mb-6">
-        <div>
-          <h2 class="text-xs font-semibold text-[#86868B] tracking-wider uppercase">Project Timeline</h2>
-        </div>
-        <button onclick="toggleProjectModal(true)" class="text-xs bg-[#0071E3] text-white px-3.5 py-1.5 rounded-full font-medium hover:bg-[#0077ED] transition-all">
+        <h2 class="text-xs font-bold text-[#86868B] tracking-wider uppercase">Project Timeline</h2>
+        <button onclick="toggleModal('project-modal', true)" class="text-xs bg-[#0071E3] text-white px-4 py-2 rounded-full font-medium hover:bg-[#0077ED] transition-all shadow-sm">
           + 새 프로젝트 추가
         </button>
       </div>
-      <div class="relative my-4">
+      
+      <div class="relative py-6">
         <div class="absolute top-1/2 left-0 right-0 h-[2px] bg-black/5 -translate-y-1/2"></div>
-        <div id="timeline-container" class="relative z-10 flex justify-around items-center overflow-x-auto py-3 scrollbar-none gap-6">
+        <div id="timeline-container" class="relative z-10 flex items-center overflow-x-auto py-2 scrollbar-none gap-8 min-h-[100px] px-2">
           <!-- JS에서 타임라인 노드 자동 생성 -->
         </div>
       </div>
     </section>
 
-    <!-- 하단: 세부 정보 및 체크리스트 -->
+    <!-- 프로젝트 상세 정보 & 체크리스트 -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
       
       <!-- 프로젝트 상세 카드 -->
       <div class="glass-card rounded-3xl p-7 flex flex-col justify-between">
         <div>
           <div class="flex justify-between items-center">
-            <span id="proj-category" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-black/5 text-[#515154]"></span>
-            <div id="proj-action-btns" class="flex gap-1.5">
-              <button onclick="openEditProjectModal()" 
-                class="text-xs text-[#0071E3] hover:text-[#0077ED] font-medium px-2.5 py-1 rounded-full bg-blue-50 hover:bg-blue-100 border border-blue-200/60 transition-all">
-                수정
-              </button>
-              <button onclick="deleteCurrentProject()" 
-                class="text-xs text-rose-500 hover:text-rose-600 font-medium px-2.5 py-1 rounded-full bg-rose-50 hover:bg-rose-100 border border-rose-200/60 transition-all">
-                삭제
-              </button>
+            <span id="proj-category" class="text-[11px] font-semibold px-3 py-1 rounded-full bg-black/5 text-[#515154]"></span>
+            <div id="proj-action-btns" class="flex gap-1.5 hidden">
+              <button onclick="openEditModal()" class="text-xs text-[#0071E3] font-medium px-3 py-1 rounded-full bg-blue-50 hover:bg-blue-100 transition-all">수정</button>
+              <button onclick="deleteCurrentProject()" class="text-xs text-rose-500 font-medium px-3 py-1 rounded-full bg-rose-50 hover:bg-rose-100 transition-all">삭제</button>
             </div>
           </div>
-          <h3 id="proj-title" class="text-2xl font-semibold tracking-tight mt-4 text-[#1D1D1F]"></h3>
+          <h3 id="proj-title" class="text-2xl font-bold tracking-tight mt-4 text-[#1D1D1F] leading-tight"></h3>
           <p id="proj-date" class="text-xs text-[#86868B] mt-2 font-medium"></p>
         </div>
+
         <div class="mt-8 pt-6 border-t border-black/5">
           <div class="flex justify-between text-xs font-medium mb-2">
             <span class="text-[#86868B]">진행률</span>
-            <span id="proj-progress-text" class="text-[#0071E3] font-semibold">0%</span>
+            <span id="proj-progress-text" class="text-[#0071E3] font-bold">0%</span>
           </div>
           <div class="w-full bg-black/5 h-2 rounded-full overflow-hidden">
             <div id="proj-progress-bar" class="bg-[#0071E3] h-full transition-all duration-500 ease-out" style="width: 0%"></div>
@@ -107,9 +103,9 @@
       <div class="md:col-span-2 glass-card rounded-3xl p-7">
         <h3 class="text-base font-semibold text-[#1D1D1F] mb-4 tracking-tight">Checklist</h3>
         
-        <form id="task-form" class="flex gap-2 mb-6">
+        <form id="task-form" onsubmit="addTask(event)" class="flex gap-2 mb-6">
           <input type="text" id="task-input" placeholder="새로운 할 일 추가..." required
-            class="flex-1 bg-white border border-black/10 rounded-2xl px-4 py-2.5 text-sm text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition-all">
+            class="flex-1 bg-white border border-black/10 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 transition-all">
           <button type="submit" class="bg-[#0071E3] hover:bg-[#0077ED] text-white px-5 py-2.5 rounded-2xl text-sm font-medium transition-all shadow-sm">
             추가
           </button>
@@ -128,17 +124,17 @@
     <div class="glass-card bg-white/95 p-8 rounded-3xl max-w-md w-full space-y-5 shadow-2xl">
       <div class="flex justify-between items-center">
         <h3 class="text-lg font-semibold text-[#1D1D1F]">새 프로젝트 추가</h3>
-        <button onclick="toggleProjectModal(false)" class="text-[#86868B] hover:text-[#1D1D1F] text-sm">✕</button>
+        <button onclick="toggleModal('project-modal', false)" class="text-[#86868B] hover:text-[#1D1D1F] text-sm">✕</button>
       </div>
-      <form id="project-form" onsubmit="addProject(event)" class="space-y-4">
+      <form onsubmit="addProject(event)" class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-[#86868B] mb-1">프로젝트명</label>
-          <input type="text" id="new-proj-title" required placeholder="예: 신규 웹사이트 디자인"
+          <input type="text" id="new-proj-title" required placeholder="예: 신규 기능 개발"
             class="w-full bg-white border border-black/10 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20">
         </div>
         <div>
           <label class="block text-xs font-medium text-[#86868B] mb-1">카테고리</label>
-          <input type="text" id="new-proj-category" placeholder="예: 디자인 / 개발 / 개인"
+          <input type="text" id="new-proj-category" placeholder="예: 개발 / 디자인 / 개인"
             class="w-full bg-white border border-black/10 rounded-2xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20">
         </div>
         <div class="grid grid-cols-2 gap-3">
@@ -154,7 +150,7 @@
           </div>
         </div>
         <div class="flex gap-2 pt-2">
-          <button type="button" onclick="toggleProjectModal(false)" class="flex-1 bg-black/5 hover:bg-black/10 text-[#515154] py-2.5 rounded-2xl text-sm font-medium transition-all">취소</button>
+          <button type="button" onclick="toggleModal('project-modal', false)" class="flex-1 bg-black/5 hover:bg-black/10 text-[#515154] py-2.5 rounded-2xl text-sm font-medium transition-all">취소</button>
           <button type="submit" class="flex-1 bg-[#0071E3] hover:bg-[#0077ED] text-white py-2.5 rounded-2xl text-sm font-medium transition-all shadow-sm">생성</button>
         </div>
       </form>
@@ -166,9 +162,9 @@
     <div class="glass-card bg-white/95 p-8 rounded-3xl max-w-md w-full space-y-5 shadow-2xl">
       <div class="flex justify-between items-center">
         <h3 class="text-lg font-semibold text-[#1D1D1F]">프로젝트 정보 수정</h3>
-        <button onclick="toggleEditProjectModal(false)" class="text-[#86868B] hover:text-[#1D1D1F] text-sm">✕</button>
+        <button onclick="toggleModal('edit-project-modal', false)" class="text-[#86868B] hover:text-[#1D1D1F] text-sm">✕</button>
       </div>
-      <form id="edit-project-form" onsubmit="updateProject(event)" class="space-y-4">
+      <form onsubmit="updateProject(event)" class="space-y-4">
         <div>
           <label class="block text-xs font-medium text-[#86868B] mb-1">프로젝트명</label>
           <input type="text" id="edit-proj-title" required
@@ -192,7 +188,7 @@
           </div>
         </div>
         <div class="flex gap-2 pt-2">
-          <button type="button" onclick="toggleEditProjectModal(false)" class="flex-1 bg-black/5 hover:bg-black/10 text-[#515154] py-2.5 rounded-2xl text-sm font-medium transition-all">취소</button>
+          <button type="button" onclick="toggleModal('edit-project-modal', false)" class="flex-1 bg-black/5 hover:bg-black/10 text-[#515154] py-2.5 rounded-2xl text-sm font-medium transition-all">취소</button>
           <button type="submit" class="flex-1 bg-[#0071E3] hover:bg-[#0077ED] text-white py-2.5 rounded-2xl text-sm font-medium transition-all shadow-sm">저장</button>
         </div>
       </form>
@@ -204,23 +200,17 @@
     const SUPABASE_URL = "https://flyjpdjlpiazdqnewrub.supabase.co";
     const SUPABASE_KEY = "sb_publishable_xEsBEYX5vwGK9-XKKYj7bg_3DE6txaK";
 
-    let supabaseClient = null;
-    try {
-      if (SUPABASE_URL && SUPABASE_URL.trim() !== "") {
-        supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-      }
-    } catch (e) {
-      console.error("Supabase 초기화 예외:", e);
-    }
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let projects = [];
     let selectedId = null;
 
+    // 인증 확인
     function checkAuth(e) {
       e.preventDefault();
       const input = document.getElementById('auth-passcode').value;
       if (input === DASHBOARD_PASSCODE) {
-        sessionStorage.setItem('dashboard_auth', 'true');
+        sessionStorage.setItem('bee_auth', 'true');
         document.getElementById('auth-modal').classList.add('hidden');
         init();
       } else {
@@ -229,97 +219,66 @@
     }
 
     window.onload = () => {
-      if (sessionStorage.getItem('dashboard_auth') === 'true') {
+      if (sessionStorage.getItem('bee_auth') === 'true') {
         document.getElementById('auth-modal').classList.add('hidden');
         init();
       }
     };
 
+    // 초기화 및 Supabase 실시간 연동
     async function init() {
-      if (supabaseClient) {
-        await fetchProjectsFromSupabase();
-      } else {
-        setLocalStatusBadge();
-        loadFromLocalStorage();
-      }
+      await fetchProjects();
+      
+      // PC & 모바일 간 실시간 데이터 동기화 (Realtime Subscription)
+      supabaseClient
+        .channel('public-db-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => fetchProjects())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => fetchProjects())
+        .subscribe();
     }
 
-    function setLocalStatusBadge() {
-      const badge = document.getElementById('status-badge');
-      if (badge) {
-        badge.className = 'text-xs px-3 py-1 rounded-full bg-blue-50 text-blue-600 font-medium border border-blue-200/60';
-        badge.innerText = '● 로컬 저장소 영구 동기화중';
-      }
-    }
-
-    function loadFromLocalStorage() {
-      const saved = localStorage.getItem('apple_dashboard_projects');
-      if (saved) {
-        try { projects = JSON.parse(saved); } catch(e) { projects = []; }
-      } else {
-        projects = [
-          {
-            id: Date.now().toString(),
-            title: "첫 번째 프로젝트",
-            category: "개인",
-            start_date: "2026-09-20",
-            end_date: "2026-09-27",
-            tasks: [{ id: "t1", text: "대시보드 기능 점검", completed: true }]
-          }
-        ];
-        saveToLocalStorage();
-      }
-      render();
-    }
-
-    function saveToLocalStorage() {
-      localStorage.setItem('apple_dashboard_projects', JSON.stringify(projects));
-      render();
-    }
-
-    async function fetchProjectsFromSupabase() {
+    // 프로젝트 & 체크리스트 조율 및 정렬
+    async function fetchProjects() {
       try {
-        const { data: projData, error: projError } = await supabaseClient.from('projects').select('*').order('start_date', { ascending: true });
-        const { data: taskData, error: taskError } = await supabaseClient.from('tasks').select('*');
+        const { data: projData, error: projErr } = await supabaseClient
+          .from('projects')
+          .select('*')
+          .order('start_date', { ascending: true });
 
-        if (projError) throw projError;
+        const { data: taskData, error: taskErr } = await supabaseClient
+          .from('tasks')
+          .select('*')
+          .order('created_at', { ascending: true });
+
+        if (projErr) throw projErr;
 
         projects = (projData || []).map(p => ({
           ...p,
-          tasks: taskData ? taskData.filter(t => t.project_id === p.id) : []
+          tasks: (taskData || []).filter(t => t.project_id === p.id)
         }));
 
-        const badge = document.getElementById('status-badge');
-        if (badge) {
-          badge.className = 'text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium border border-emerald-200/60';
-          badge.innerText = '● Supabase 실시간 동기화';
-        }
         render();
       } catch (err) {
-        console.error("Supabase 연결 오류:", err);
-        supabaseClient = null;
-        setLocalStatusBadge();
-        loadFromLocalStorage();
+        console.error("Supabase Fetch Error:", err.message);
       }
     }
 
+    // 렌더링 로직
     function render() {
-      projects.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
-
       const container = document.getElementById('timeline-container');
+      const actionBtns = document.getElementById('proj-action-btns');
       if (!container) return;
+
       container.innerHTML = '';
 
-      const actionBtns = document.getElementById('proj-action-btns');
-
       if (projects.length === 0) {
-        container.innerHTML = `<p class="text-xs text-[#86868B] py-4">등록된 프로젝트가 없습니다.</p>`;
+        container.innerHTML = `<p class="text-xs text-[#86868B] py-4 mx-auto">등록된 프로젝트가 없습니다.</p>`;
         document.getElementById('proj-title').innerText = "프로젝트 없음";
         document.getElementById('proj-category').innerText = "-";
         document.getElementById('proj-date').innerText = "";
         document.getElementById('proj-progress-text').innerText = "0%";
         document.getElementById('proj-progress-bar').style.width = "0%";
-        document.getElementById('task-list').innerHTML = `<p class="text-xs text-[#86868B] text-center py-4">프로젝트를 먼저 생성해 주세요.</p>`;
+        document.getElementById('task-list').innerHTML = `<p class="text-xs text-[#86868B] text-center py-6">프로젝트를 먼저 생성해 주세요.</p>`;
         if (actionBtns) actionBtns.classList.add('hidden');
         return;
       }
@@ -330,17 +289,20 @@
         selectedId = projects[0].id;
       }
 
+      // 1. 가로 타임라인 렌더링 (start_date 순 정렬 상태)
       projects.forEach(p => {
         const isSelected = p.id === selectedId;
         const isSameDate = p.start_date === p.end_date;
-        const btn = document.createElement('button');
-        btn.className = 'flex flex-col items-center group focus:outline-none flex-shrink-0 px-2';
-        btn.onclick = () => { selectedId = p.id; render(); };
         
-        const endDateBadge = isSameDate ? '' : `
+        const btn = document.createElement('div');
+        btn.className = 'flex flex-col items-center group cursor-pointer flex-shrink-0';
+        btn.onclick = () => { selectedId = p.id; render(); };
+
+        // 마감일 배지 (start_date !== end_date 일 때만 출력)
+        const deadlineBadge = isSameDate ? '' : `
           <div class="h-[2px] w-3 ${isSelected ? 'bg-[#0071E3]' : 'bg-black/15'}"></div>
-          <div class="text-[10px] font-medium px-2 py-0.5 rounded-full transition-all flex items-center gap-1 ${
-            isSelected ? 'bg-[#0071E3] text-white shadow-sm font-semibold' : 'bg-black/5 text-[#86868B] border border-black/5 group-hover:bg-black/10'
+          <div class="text-[10px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1 ${
+            isSelected ? 'bg-[#0071E3] text-white shadow-xs font-semibold' : 'bg-black/5 text-[#86868B]'
           }">
             <span>➔</span>
             <span>${p.end_date}</span>
@@ -353,21 +315,21 @@
           </span>
           <div class="flex items-center my-1">
             <div class="w-3.5 h-3.5 rounded-full border-2 transition-all ${isSelected ? 'bg-[#0071E3] border-[#0071E3] scale-110 ring-4 ring-[#0071E3]/15' : 'bg-white border-black/25 group-hover:border-black/40'}"></div>
-            ${endDateBadge}
+            ${deadlineBadge}
           </div>
           <span class="text-xs mt-2 px-3.5 py-1 rounded-full font-medium transition-all ${
-            isSelected ? 'bg-[#0071E3]/10 text-[#0071E3] font-semibold border border-[#0071E3]/20' : 'bg-white/80 text-[#515154] border border-black/5 group-hover:bg-white'
+            isSelected ? 'bg-[#0071E3] text-white font-semibold shadow-md' : 'bg-white/80 text-[#515154] border border-black/5 group-hover:bg-white'
           }">${p.title}</span>
         `;
         container.appendChild(btn);
       });
 
+      // 2. 선택된 프로젝트 상세정보 & 체크리스트 반영
       const current = projects.find(p => p.id === selectedId);
       if (!current) return;
 
       document.getElementById('proj-title').innerText = current.title;
       document.getElementById('proj-category').innerText = current.category || '일반';
-      
       document.getElementById('proj-date').innerText = current.start_date === current.end_date
         ? `일자: ${current.start_date}`
         : `기간: ${current.start_date} ~ ${current.end_date}`;
@@ -379,10 +341,14 @@
       document.getElementById('proj-progress-text').innerText = `${pct}%`;
       document.getElementById('proj-progress-bar').style.width = `${pct}%`;
 
+      // 체크리스트 목록
       const taskList = document.getElementById('task-list');
-      if (taskList) {
-        taskList.innerHTML = '';
-        (current.tasks || []).forEach(t => {
+      taskList.innerHTML = '';
+      
+      if (!current.tasks || current.tasks.length === 0) {
+        taskList.innerHTML = `<p class="text-xs text-[#86868B] text-center py-6">등록된 할 일이 없습니다.</p>`;
+      } else {
+        current.tasks.forEach(t => {
           const div = document.createElement('div');
           div.className = 'flex items-center justify-between p-3.5 rounded-2xl bg-white/80 border border-black/5 shadow-2xs hover:border-black/10 transition-all';
           div.innerHTML = `
@@ -398,7 +364,38 @@
       }
     }
 
-    function openEditProjectModal() {
+    // 모달 토글
+    function toggleModal(modalId, show) {
+      const modal = document.getElementById(modalId);
+      if (modal) {
+        if (show) modal.classList.remove('hidden');
+        else modal.classList.add('hidden');
+      }
+    }
+
+    // 프로젝트 생성 (Create)
+    async function addProject(e) {
+      e.preventDefault();
+      const title = document.getElementById('new-proj-title').value.trim();
+      const category = document.getElementById('new-proj-category').value.trim() || '개인';
+      const start_date = document.getElementById('new-proj-start').value;
+      const end_date = document.getElementById('new-proj-end').value;
+
+      try {
+        const { data, error } = await supabaseClient.from('projects').insert([{ title, category, start_date, end_date }]).select();
+        if (error) throw error;
+        if (data && data.length > 0) selectedId = data[0].id;
+        
+        e.target.reset();
+        toggleModal('project-modal', false);
+        await fetchProjects();
+      } catch (err) {
+        alert("프로젝트 생성 오류: " + err.message);
+      }
+    }
+
+    // 프로젝트 수정 모달 오픈
+    function openEditModal() {
       const current = projects.find(p => p.id === selectedId);
       if (!current) return;
 
@@ -407,174 +404,93 @@
       document.getElementById('edit-proj-start').value = current.start_date;
       document.getElementById('edit-proj-end').value = current.end_date;
 
-      toggleEditProjectModal(true);
+      toggleModal('edit-project-modal', true);
     }
 
-    function toggleEditProjectModal(show) {
-      const modal = document.getElementById('edit-project-modal');
-      if (modal) {
-        if (show) modal.classList.remove('hidden');
-        else modal.classList.add('hidden');
-      }
-    }
-
+    // 프로젝트 수정 (Update)
     async function updateProject(e) {
       e.preventDefault();
       const title = document.getElementById('edit-proj-title').value.trim();
       const category = document.getElementById('edit-proj-category').value.trim() || '개인';
-      const startDate = document.getElementById('edit-proj-start').value;
-      const endDate = document.getElementById('edit-proj-end').value;
+      const start_date = document.getElementById('edit-proj-start').value;
+      const end_date = document.getElementById('edit-proj-end').value;
 
       try {
-        if (supabaseClient) {
-          const { error } = await supabaseClient.from('projects').update({
-            title, category, start_date: startDate, end_date: endDate
-          }).eq('id', selectedId);
-          if (error) throw error;
-          await fetchProjectsFromSupabase();
-        } else {
-          const current = projects.find(p => p.id === selectedId);
-          if (current) {
-            current.title = title;
-            current.category = category;
-            current.start_date = startDate;
-            current.end_date = endDate;
-            saveToLocalStorage();
-          }
-        }
-      } catch (err) {
-        alert("수정 중 오류 발생: " + err.message);
-      }
+        const { error } = await supabaseClient
+          .from('projects')
+          .update({ title, category, start_date, end_date })
+          .eq('id', selectedId);
 
-      toggleEditProjectModal(false);
+        if (error) throw error;
+
+        toggleModal('edit-project-modal', false);
+        await fetchProjects();
+      } catch (err) {
+        alert("프로젝트 수정 오류: " + err.message);
+      }
     }
 
+    // 프로젝트 삭제 (Delete)
     async function deleteCurrentProject() {
       const current = projects.find(p => p.id === selectedId);
       if (!current) return;
 
       if (confirm(`'${current.title}' 프로젝트를 삭제하시겠습니까?`)) {
         try {
-          if (supabaseClient) {
-            const { error } = await supabaseClient.from('projects').delete().eq('id', selectedId);
-            if (error) throw error;
-            selectedId = null;
-            await fetchProjectsFromSupabase();
-          } else {
-            projects = projects.filter(p => p.id !== selectedId);
-            selectedId = null;
-            saveToLocalStorage();
-          }
+          await supabaseClient.from('tasks').delete().eq('project_id', selectedId);
+          const { error } = await supabaseClient.from('projects').delete().eq('id', selectedId);
+          if (error) throw error;
+
+          selectedId = null;
+          await fetchProjects();
         } catch (err) {
-          alert("삭제 중 오류 발생: " + err.message);
+          alert("프로젝트 삭제 오류: " + err.message);
         }
       }
     }
 
-    function toggleProjectModal(show) {
-      const modal = document.getElementById('project-modal');
-      if (modal) {
-        if (show) modal.classList.remove('hidden');
-        else modal.classList.add('hidden');
-      }
-    }
-
-    async function addProject(e) {
+    // 체크리스트 추가 (Task Create)
+    async function addTask(e) {
       e.preventDefault();
-      const title = document.getElementById('new-proj-title').value.trim();
-      const category = document.getElementById('new-proj-category').value.trim() || '개인';
-      const startDate = document.getElementById('new-proj-start').value;
-      const endDate = document.getElementById('new-proj-end').value;
+      const input = document.getElementById('task-input');
+      const text = input.value.trim();
+      if (!text || !selectedId) return;
 
       try {
-        if (supabaseClient) {
-          const { data, error } = await supabaseClient.from('projects').insert([{
-            title, category, start_date: startDate, end_date: endDate
-          }]).select();
-          if (error) throw error;
-          if (data && data.length > 0) selectedId = data[0].id;
-          await fetchProjectsFromSupabase();
-        } else {
-          const newProj = {
-            id: Date.now().toString(),
-            title,
-            category,
-            start_date: startDate,
-            end_date: endDate,
-            tasks: []
-          };
-          projects.push(newProj);
-          selectedId = newProj.id;
-          saveToLocalStorage();
-        }
-      } catch (err) {
-        alert("프로젝트 생성 오류: " + err.message);
-      }
+        const { error } = await supabaseClient.from('tasks').insert([{ project_id: selectedId, text, completed: false }]);
+        if (error) throw error;
 
-      const form = document.getElementById('project-form');
-      if (form) form.reset();
-      toggleProjectModal(false);
+        input.value = '';
+        await fetchProjects();
+      } catch (err) {
+        alert("할 일 추가 오류: " + err.message);
+      }
     }
 
+    // 체크박스 토글 (Task Update)
     async function toggleTask(taskId, currentStatus) {
       try {
-        if (supabaseClient) {
-          const { error } = await supabaseClient.from('tasks').update({ completed: !currentStatus }).eq('id', taskId);
-          if (error) throw error;
-          await fetchProjectsFromSupabase();
-        } else {
-          const current = projects.find(p => p.id === selectedId);
-          const task = current.tasks.find(t => t.id === taskId);
-          if (task) task.completed = !task.completed;
-          saveToLocalStorage();
-        }
+        const { error } = await supabaseClient
+          .from('tasks')
+          .update({ completed: !currentStatus })
+          .eq('id', taskId);
+
+        if (error) throw error;
+        await fetchProjects();
       } catch (err) {
         alert("체크 상태 변경 오류: " + err.message);
       }
     }
 
+    // 체크리스트 삭제 (Task Delete)
     async function deleteTask(taskId) {
       try {
-        if (supabaseClient) {
-          const { error } = await supabaseClient.from('tasks').delete().eq('id', taskId);
-          if (error) throw error;
-          await fetchProjectsFromSupabase();
-        } else {
-          const current = projects.find(p => p.id === selectedId);
-          current.tasks = current.tasks.filter(t => t.id !== taskId);
-          saveToLocalStorage();
-        }
+        const { error } = await supabaseClient.from('tasks').delete().eq('id', taskId);
+        if (error) throw error;
+        await fetchProjects();
       } catch (err) {
-        alert("삭제 중 오류 발생: " + err.message);
+        alert("할 일 삭제 오류: " + err.message);
       }
-    }
-
-    const taskForm = document.getElementById('task-form');
-    if (taskForm) {
-      taskForm.onsubmit = async (e) => {
-        e.preventDefault();
-        const input = document.getElementById('task-input');
-        const text = input ? input.value.trim() : '';
-        if (!text || !selectedId) return;
-
-        try {
-          if (supabaseClient) {
-            const { error } = await supabaseClient.from('tasks').insert([{ project_id: selectedId, text, completed: false }]);
-            if (error) throw error;
-            if (input) input.value = '';
-            await fetchProjectsFromSupabase();
-          } else {
-            const current = projects.find(p => p.id === selectedId);
-            if (current) {
-              current.tasks.push({ id: Date.now().toString(), text, completed: false });
-              if (input) input.value = '';
-              saveToLocalStorage();
-            }
-          }
-        } catch (err) {
-          alert("할 일 추가 중 오류 발생: " + err.message);
-        }
-      };
     }
   </script>
 </body>
