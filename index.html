@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 개인 프라이빗 대시보드</title>
+  <title>AI 프라이빗 대시보드</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Chart.js -->
@@ -68,7 +68,7 @@
         <div class="relative flex-1">
           <i class="fa-solid fa-wand-magic-sparkles absolute left-4 top-3.5 text-indigo-400"></i>
           <input type="text" id="promptInput" 
-                 placeholder="예: '웹 개편 마감일 이틀 밀어줘', 'DB 마이그레이션 업무 추가해줘'" 
+                 placeholder="예: '웹 개편 프로젝트에 메인 UI 디자인 추가해줘', 'DB 마이그레이션 완료 처리해줘'" 
                  class="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-xl text-sm border-none focus:ring-2 focus:ring-indigo-400 outline-none"
                  onkeypress="if(event.key === 'Enter') processPrompt()">
         </div>
@@ -79,7 +79,7 @@
       </div>
     </section>
 
-    <!-- KPI 카드 영역 -->
+    <!-- KPI 카드 영역 (유지) -->
     <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <div class="bg-blue-50 border border-blue-100 p-5 rounded-2xl">
         <span class="text-blue-600 text-sm font-semibold">전체 업무</span>
@@ -105,7 +105,7 @@
         <h3 class="text-slate-700 font-bold mb-4 text-sm flex items-center gap-2">
           <i class="fa-solid fa-chart-pie text-indigo-400"></i> 상태별 현황
         </h3>
-        <div class="h-64 flex justify-center items-center">
+        <div class="h-52 flex justify-center items-center">
           <canvas id="statusChart"></canvas>
         </div>
       </div>
@@ -113,39 +113,29 @@
         <h3 class="text-slate-700 font-bold mb-4 text-sm flex items-center gap-2">
           <i class="fa-solid fa-chart-simple text-indigo-400"></i> 우선순위별 현황
         </h3>
-        <div class="h-64 flex justify-center items-center">
+        <div class="h-52 flex justify-center items-center">
           <canvas id="priorityChart"></canvas>
         </div>
       </div>
     </section>
 
-    <!-- 업무 목록 테이블 -->
-    <section class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-      <div class="p-6 border-b border-slate-100">
-        <h3 class="text-slate-800 font-bold">업무 목록</h3>
+    <!-- 📦 프로젝트별 박스 (체크리스트) 영역 -->
+    <section>
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+          <i class="fa-solid fa-cubes text-indigo-500"></i> 프로젝트별 업무 박스
+        </h3>
       </div>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left border-collapse">
-          <thead>
-            <tr class="bg-slate-50 text-slate-400 text-xs uppercase font-semibold">
-              <th class="py-3 px-6">프로젝트</th>
-              <th class="py-3 px-6">업무명</th>
-              <th class="py-3 px-6">마감일</th>
-              <th class="py-3 px-6">D-Day</th>
-              <th class="py-3 px-6">우선순위</th>
-              <th class="py-3 px-6">상태</th>
-              <th class="py-3 px-6">메모</th>
-            </tr>
-          </thead>
-          <tbody id="taskTableBody" class="divide-y divide-slate-100 text-sm"></tbody>
-        </table>
+      <!-- 동적으로 카드들이 생성되는 그리드 컨테이너 -->
+      <div id="projectCardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- JS로 동적 생성됨 -->
       </div>
     </section>
 
   </div>
 
   <script>
-    // ⚙️ DB 접속 정보 및 PIN 번호만 고정 세팅
+    // ⚙️ DB 접속 정보 및 PIN 번호 고정 세팅
     const CONFIG = {
       MY_PIN: "0410",                                            // 🔒 비밀번호 4자리
       SUPABASE_URL: "https://flyjpdjlpiazdqnewrub.supabase.co",   // 🌐 Supabase URL
@@ -168,7 +158,6 @@
     const pastelColors = { blue: '#A8DADC', pink: '#FFB7B2', yellow: '#FFE5B4', green: '#B5EAD7', purple: '#C7CEEA', gray: '#E2E8F0' };
 
     window.onload = () => {
-      // 기존에 저장된 Gemini API 키 불러오기
       const savedKey = localStorage.getItem('gemini_api_key');
       if (savedKey) document.getElementById('geminiKeyInput').value = savedKey;
 
@@ -263,32 +252,135 @@
       });
     }
 
+    // 🔄 상태 및 수치 재계산
+    function recalculateState() {
+      const tasks = dashboardState.tasks || [];
+      const total = tasks.length;
+      const completed = tasks.filter(t => t.status === '완료').length;
+      const inProgress = tasks.filter(t => t.status === '진행중').length;
+
+      // 마감임박 (D-3 이내 미완료)
+      const impending = tasks.filter(t => {
+        if (t.status === '완료') return false;
+        if (!t.dDay) return false;
+        const d = String(t.dDay).toUpperCase();
+        return d === 'D-DAY' || d === 'D-0' || d === 'D-1' || d === 'D-2' || d === 'D-3';
+      }).length;
+
+      dashboardState.kpis = { total, inProgress, completed, impending };
+
+      const byStatus = { "대기": 0, "진행중": 0, "완료": 0 };
+      const byPriority = { "높음": 0, "보통": 0, "낮음": 0 };
+
+      tasks.forEach(t => {
+        const s = t.status || '대기';
+        const p = t.priority || '보통';
+        byStatus[s] = (byStatus[s] || 0) + 1;
+        byPriority[p] = (byPriority[p] || 0) + 1;
+      });
+
+      dashboardState.chartData = { byStatus, byPriority };
+    }
+
+    // 🗳️ 체크박스 클릭 토글 이벤트
+    async function toggleTaskStatus(taskId) {
+      const task = dashboardState.tasks.find(t => String(t.id) === String(taskId));
+      if (task) {
+        task.status = (task.status === '완료') ? '진행중' : '완료';
+        recalculateState();
+        renderDashboard(dashboardState);
+        await saveToDb(dashboardState);
+      }
+    }
+
+    // 🖥️ 렌더링 메인 함수
     function renderDashboard(state) {
+      // 1. KPI
       document.getElementById('kpiTotal').innerText = state.kpis.total || 0;
       document.getElementById('kpiInProgress').innerText = state.kpis.inProgress || 0;
       document.getElementById('kpiCompleted').innerText = state.kpis.completed || 0;
       document.getElementById('kpiImpending').innerText = state.kpis.impending || 0;
 
-      const tbody = document.getElementById('taskTableBody');
-      tbody.innerHTML = '';
-      (state.tasks || []).forEach(task => {
-        const tr = document.createElement('tr');
-        tr.className = 'hover:bg-slate-50 transition';
-        const pBadge = task.priority === '높음' ? 'bg-rose-100 text-rose-700' : task.priority === '보통' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600';
-        const sBadge = task.status === '완료' ? 'bg-emerald-100 text-emerald-700' : task.status === '진행중' ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600';
-
-        tr.innerHTML = `
-          <td class="py-4 px-6 font-medium text-slate-500">${task.project}</td>
-          <td class="py-4 px-6 font-semibold text-slate-800">${task.task}</td>
-          <td class="py-4 px-6 text-slate-500">${task.deadline}</td>
-          <td class="py-4 px-6 font-bold text-indigo-600">${task.dDay}</td>
-          <td class="py-4 px-6"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${pBadge}">${task.priority}</span></td>
-          <td class="py-4 px-6"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${sBadge}">${task.status}</span></td>
-          <td class="py-4 px-6 text-slate-400 text-xs">${task.memo || '-'}</td>
-        `;
-        tbody.appendChild(tr);
+      // 2. 프로젝트별 그룹화 & 카드 박스 생성
+      const groupedProjects = {};
+      (state.tasks || []).forEach((t, idx) => {
+        if (!t.id) t.id = 'task_' + idx + '_' + Date.now();
+        const projName = t.project || t.projectName || '기타 프로젝트';
+        if (!groupedProjects[projName]) groupedProjects[projName] = [];
+        groupedProjects[projName].push(t);
       });
 
+      const container = document.getElementById('projectCardsContainer');
+      container.innerHTML = '';
+
+      const projectNames = Object.keys(groupedProjects);
+
+      if (projectNames.length === 0) {
+        container.innerHTML = `
+          <div class="col-span-full bg-white p-12 rounded-2xl text-center text-slate-400 border border-slate-100">
+            <i class="fa-regular fa-folder-open text-4xl mb-3 block"></i>
+            등록된 프로젝트가 없습니다. 위 입력창에 자연어로 업무를 추가해보세요!
+          </div>`;
+      } else {
+        projectNames.forEach(proj => {
+          const tasks = groupedProjects[proj];
+          const completedCount = tasks.filter(t => t.status === '완료').length;
+          const progressPercent = Math.round((completedCount / tasks.length) * 100);
+
+          const card = document.createElement('div');
+          card.className = 'bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4 flex flex-col justify-between';
+
+          let taskListHtml = '';
+          tasks.forEach(t => {
+            const isDone = t.status === '완료';
+            const taskTitle = t.task || t.taskName || t.title || '제목 없음';
+            const priorityBadge = t.priority === '높음' ? 'bg-rose-100 text-rose-700' : t.priority === '보통' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600';
+
+            taskListHtml += `
+              <li class="flex items-start justify-between gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100">
+                <label class="flex items-start gap-3 cursor-pointer flex-1 min-w-0">
+                  <input type="checkbox" ${isDone ? 'checked' : ''} onchange="toggleTaskStatus('${t.id}')" 
+                         class="mt-1 w-4 h-4 text-indigo-600 rounded focus:ring-indigo-400 cursor-pointer accent-indigo-600">
+                  <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium ${isDone ? 'line-through text-slate-400' : 'text-slate-800'} break-words">
+                      ${taskTitle}
+                    </p>
+                    <div class="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
+                      <span><i class="fa-regular fa-calendar text-xs"></i> ${t.deadline || '-'}</span>
+                      ${t.memo ? `<span class="truncate">| ${t.memo}</span>` : ''}
+                    </div>
+                  </div>
+                </label>
+                <div class="flex flex-col items-end gap-1 flex-shrink-0">
+                  <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">${t.dDay || 'D-Day'}</span>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full ${priorityBadge}">${t.priority || '보통'}</span>
+                </div>
+              </li>
+            `;
+          });
+
+          card.innerHTML = `
+            <div>
+              <div class="flex justify-between items-center mb-3">
+                <h4 class="font-bold text-slate-900 text-base flex items-center gap-2">
+                  <i class="fa-solid fa-folder text-amber-400"></i> ${proj}
+                </h4>
+                <span class="text-xs font-semibold text-slate-500">${completedCount}/${tasks.length} 완료</span>
+              </div>
+              <!-- 진척도 바 -->
+              <div class="w-full bg-slate-100 rounded-full h-2 mb-4 overflow-hidden">
+                <div class="bg-indigo-500 h-2 rounded-full transition-all duration-500" style="width: ${progressPercent}%"></div>
+              </div>
+              <ul class="space-y-1">
+                ${taskListHtml}
+              </ul>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+      }
+
+      // 3. 차트 렌더링
       renderCharts(state.chartData);
     }
 
@@ -316,6 +408,7 @@
       });
     }
 
+    // 🤖 AI 명령어 실행
     async function processPrompt() {
       const apiKey = localStorage.getItem('gemini_api_key') || document.getElementById('geminiKeyInput').value.trim();
       const promptInput = document.getElementById('promptInput');
@@ -339,12 +432,18 @@
 
 [역할 및 규칙]
 1. 입력받은 기존 대시보드 JSON 데이터를 바탕으로 사용자의 자연어 명령을 반영하여 업데이트된 새 JSON 전체를 생성해라.
-2. D-Day는 기준 날짜(${today})와 마감일(deadline, YYYY-MM-DD)의 차이를 계산하여 'D-3', 'D+2', 'D-Day' 형태로 입력해라.
-3. kpis와 chartData는 tasks 상태 변화에 맞춰 정확하게 자동 재계산해라.
-   - kpis: total(전체), inProgress(진행중), completed(완료), impending(D-Day가 D-3 ~ D-Day 사이인 미완료 업무)
-   - chartData.byStatus: {"대기": n, "진행중": n, "완료": n}
-   - chartData.byPriority: {"높음": n, "보통": n, "낮음": n}
-4. 반드시 제공된 스키마 형식에 맞는 순수 JSON 객체만 반환해라.
+2. 각 task 객체는 반드시 아래 속성명을 완벽히 지켜라:
+   - id: 유니크 스트링 (예: "task_123")
+   - project: 프로젝트 이름 (예: "웹사이트 개편")
+   - task: 업무 제목 (예: "메인 UI 디자인 수정을 검토하기")
+   - deadline: 마감일 (YYYY-MM-DD)
+   - dDay: D-Day (예: "D-2", "D-Day", "D+1")
+   - priority: 우선순위 ("높음", "보통", "낮음")
+   - status: 상태 ("대기", "진행중", "완료")
+   - memo: 추가 메모
+3. D-Day는 기준 날짜(${today})와 마감일(deadline)의 차이를 정확히 계산해라.
+4. kpis와 chartData는 tasks 상태 변화에 맞춰 정확하게 자동 재계산해라.
+5. 반드시 마크다운 없이 순수 JSON 객체만 반환해라.
       `;
 
       const payload = {
@@ -366,6 +465,7 @@
         const newDashboardState = JSON.parse(data.candidates[0].content.parts[0].text);
 
         dashboardState = newDashboardState;
+        recalculateState();
         renderDashboard(dashboardState);
         await saveToDb(dashboardState);
         promptInput.value = '';
