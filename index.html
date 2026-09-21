@@ -69,7 +69,7 @@
         <div id="status-badge" class="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium border border-emerald-200/60 flex items-center gap-1.5">
           <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span> 실시간 연결됨
         </div>
-        <button id="view-toggle-btn" onclick="toggleArchiveView()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-full font-medium transition-all shadow-sm flex items-center gap-1.5">
+        <button id="view-toggle-btn" onclick="toggleArchiveView()" class="text-xs bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded-full font-medium transition-all shadow-sm flex items-center gap-1.5">
           <span>📦</span> <span id="view-toggle-text">프로젝트 아카이브</span>
         </button>
       </div>
@@ -103,9 +103,9 @@
             <div class="flex justify-between items-center">
               <span id="proj-category" class="text-[11px] font-semibold px-3 py-1 rounded-full bg-black/5 text-[#515154]"></span>
               <div id="proj-action-btns" class="flex gap-1.5 hidden">
-                <button onclick="openEditModal()" class="text-xs text-[#0071E3] font-medium px-2.5 py-1 rounded-full bg-blue-50 hover:bg-blue-100 transition-all border border-blue-200/60">수정</button>
-                <button onclick="archiveCurrentProject()" class="text-xs text-emerald-600 font-medium px-2.5 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 transition-all border border-emerald-200/60">보관</button>
-                <button onclick="deleteCurrentProject()" class="text-xs text-rose-500 font-medium px-2.5 py-1 rounded-full bg-rose-50 hover:bg-rose-100 transition-all border border-rose-200/60">삭제</button>
+                <button onclick="openEditModal()" class="text-[11px] text-[#0071E3] font-medium px-2.5 py-1 rounded-full bg-blue-50 hover:bg-blue-100 transition-all border border-blue-200/60">수정</button>
+                <button onclick="archiveCurrentProject()" class="text-[11px] text-emerald-600 font-medium px-2.5 py-1 rounded-full bg-emerald-50 hover:bg-emerald-100 transition-all border border-emerald-200/60">보관</button>
+                <button onclick="deleteCurrentProject()" class="text-[11px] text-rose-500 font-medium px-2.5 py-1 rounded-full bg-rose-50 hover:bg-rose-100 transition-all border border-rose-200/60">삭제</button>
               </div>
             </div>
             <h3 id="proj-title" class="text-2xl font-bold tracking-tight mt-4 text-[#1D1D1F] leading-tight"></h3>
