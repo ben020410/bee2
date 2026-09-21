@@ -41,10 +41,10 @@
   <!-- 메인 대시보드 화면 -->
   <div class="max-w-5xl mx-auto space-y-8">
     
-    <!-- Apple 헤더 -->
+    <!-- Apple 헤더 (제목 변경: 🐝Bee) -->
     <header class="flex justify-between items-end pb-2 border-b border-black/5">
       <div>
-        <h1 class="text-3xl font-semibold tracking-tight text-[#1D1D1F]">Dashboard</h1>
+        <h1 class="text-3xl font-semibold tracking-tight text-[#1D1D1F]">🐝Bee</h1>
         <p class="text-xs text-[#86868B] mt-1 font-medium">개인 프로젝트 & 타임라인 관리</p>
       </div>
       <div id="status-badge" class="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium border border-emerald-200/60">
@@ -52,12 +52,11 @@
       </div>
     </header>
 
-    <!-- 상단: 깔끔한 화살표 타임라인 -->
+    <!-- 상단: 시작일 기준 타임라인 -->
     <section class="glass-card rounded-3xl p-7">
       <div class="flex justify-between items-center mb-6">
         <div>
           <h2 class="text-xs font-semibold text-[#86868B] tracking-wider uppercase">Project Timeline</h2>
-          <p class="text-[11px] text-[#86868B] mt-0.5">* 시작일과 화살표 마감일 배지로 프로젝트 기간이 표시됩니다.</p>
         </div>
         <button onclick="toggleProjectModal(true)" class="text-xs bg-[#0071E3] text-white px-3.5 py-1.5 rounded-full font-medium hover:bg-[#0077ED] transition-all">
           + 새 프로젝트 추가
@@ -66,7 +65,7 @@
       <div class="relative my-4">
         <div class="absolute top-1/2 left-0 right-0 h-[2px] bg-black/5 -translate-y-1/2"></div>
         <div id="timeline-container" class="relative z-10 flex justify-around items-center overflow-x-auto py-3 scrollbar-none gap-6">
-          <!-- JS에서 화살표 시각화 노드 생성 -->
+          <!-- JS에서 타임라인 노드 자동 생성 -->
         </div>
       </div>
     </section>
@@ -74,7 +73,7 @@
     <!-- 하단: 세부 정보 및 체크리스트 -->
     <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
       
-      <!-- 프로젝트 상세 카드 (수정 & 삭제 버튼 포함) -->
+      <!-- 프로젝트 상세 카드 -->
       <div class="glass-card rounded-3xl p-7 flex flex-col justify-between">
         <div>
           <div class="flex justify-between items-center">
@@ -194,7 +193,7 @@
         </div>
         <div class="flex gap-2 pt-2">
           <button type="button" onclick="toggleEditProjectModal(false)" class="flex-1 bg-black/5 hover:bg-black/10 text-[#515154] py-2.5 rounded-2xl text-sm font-medium transition-all">취소</button>
-          <button type="submit" class="flex-1 bg-[#0071E3] hover:bg-[#0077ED] text-white py-2.5 rounded-2xl text-sm font-medium transition-all shadow-sm">수정 저장</button>
+          <button type="submit" class="flex-1 bg-[#0071E3] hover:bg-[#0077ED] text-white py-2.5 rounded-2xl text-sm font-medium transition-all shadow-sm">저장</button>
         </div>
       </form>
     </div>
@@ -281,7 +280,7 @@
       }
     }
 
-    // --- 시작일 텍스트 + 화살표 마감일 배지 타임라인 렌더링 ---
+    // --- 타임라인 렌더링 (동일 날짜 조건부 화살표 처리) ---
     function render() {
       projects.sort((a, b) => new Date(a.start_date) - new Date(b.start_date));
 
@@ -308,25 +307,29 @@
 
       projects.forEach(p => {
         const isSelected = p.id === selectedId;
+        const isSameDate = p.start_date === p.end_date;
         const btn = document.createElement('button');
         btn.className = 'flex flex-col items-center group focus:outline-none flex-shrink-0 px-2';
         btn.onclick = () => { selectedId = p.id; render(); };
         
-        // 1) 상단: 시작일 텍스트만 표시
-        // 2) 중앙: 시작 포인트(dot) -> 화살표 줄기 -> 마감일 뱃지 시각화
+        // 시작일과 마감일이 같은 경우 화살표 배지를 숨김
+        const endDateBadge = isSameDate ? '' : `
+          <div class="h-[2px] w-3 ${isSelected ? 'bg-[#0071E3]' : 'bg-black/15'}"></div>
+          <div class="text-[10px] font-medium px-2 py-0.5 rounded-full transition-all flex items-center gap-1 ${
+            isSelected ? 'bg-[#0071E3] text-white shadow-sm font-semibold' : 'bg-black/5 text-[#86868B] border border-black/5 group-hover:bg-black/10'
+          }">
+            <span>➔</span>
+            <span>${p.end_date}</span>
+          </div>
+        `;
+
         btn.innerHTML = `
           <span class="text-[11px] font-semibold tracking-tight transition-colors mb-1.5 ${isSelected ? 'text-[#0071E3]' : 'text-[#86868B] group-hover:text-[#1D1D1F]'}">
             ${p.start_date}
           </span>
           <div class="flex items-center my-1">
             <div class="w-3.5 h-3.5 rounded-full border-2 transition-all ${isSelected ? 'bg-[#0071E3] border-[#0071E3] scale-110 ring-4 ring-[#0071E3]/15' : 'bg-white border-black/25 group-hover:border-black/40'}"></div>
-            <div class="h-[2px] w-3 ${isSelected ? 'bg-[#0071E3]' : 'bg-black/15'}"></div>
-            <div class="text-[10px] font-medium px-2 py-0.5 rounded-full transition-all flex items-center gap-1 ${
-              isSelected ? 'bg-[#0071E3] text-white shadow-sm font-semibold' : 'bg-black/5 text-[#86868B] border border-black/5 group-hover:bg-black/10'
-            }">
-              <span>➔</span>
-              <span>${p.end_date}</span>
-            </div>
+            ${endDateBadge}
           </div>
           <span class="text-xs mt-2 px-3.5 py-1 rounded-full font-medium transition-all ${
             isSelected ? 'bg-[#0071E3]/10 text-[#0071E3] font-semibold border border-[#0071E3]/20' : 'bg-white/80 text-[#515154] border border-black/5 group-hover:bg-white'
@@ -340,7 +343,11 @@
 
       document.getElementById('proj-title').innerText = current.title;
       document.getElementById('proj-category').innerText = current.category || '일반';
-      document.getElementById('proj-date').innerText = `기간: ${current.start_date} ~ ${current.end_date}`;
+      
+      // 하단 카드 기간 표시: 시작일과 마감일이 같으면 단일 날짜만 표기
+      document.getElementById('proj-date').innerText = current.start_date === current.end_date
+        ? `일자: ${current.start_date}`
+        : `기간: ${current.start_date} ~ ${current.end_date}`;
 
       const total = current.tasks ? current.tasks.length : 0;
       const done = current.tasks ? current.tasks.filter(t => t.completed).length : 0;
@@ -366,7 +373,6 @@
       });
     }
 
-    // --- 프로젝트 수정 모달 오픈 & 저장 처리 ---
     function openEditProjectModal() {
       const current = projects.find(p => p.id === selectedId);
       if (!current) return;
