@@ -3,481 +3,222 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 프라이빗 대시보드</title>
-  <!-- Tailwind CSS -->
+  <title>Private Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <!-- Supabase JS Client -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- FontAwesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/ajax/libs/supabase-js/2.39.0/supabase.min.js"></script>
   <style>
-    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-    body { font-family: 'Pretendard', sans-serif; background-color: #F8FAFC; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.04);
+    }
   </style>
 </head>
-<body class="text-slate-800 p-4 md:p-8 min-h-screen">
-
-  <!-- 🔒 PIN 번호 잠금 화면 모달 -->
-  <div id="lockScreen" class="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-    <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center space-y-5">
-      <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto text-2xl">
-        <i class="fa-solid fa-lock"></i>
-      </div>
-      <div>
-        <h2 class="text-xl font-bold text-slate-800">프라이빗 대시보드</h2>
-        <p class="text-xs text-slate-400 mt-1">접속하려면 PIN 번호 4자리를 입력하세요.</p>
-      </div>
-      <input type="password" id="pinInput" maxlength="4" placeholder="••••" 
-             class="w-full text-center text-3xl font-bold tracking-[1em] py-3 border-2 border-slate-200 rounded-2xl focus:border-indigo-500 outline-none"
-             onkeypress="if(event.key === 'Enter') checkPin()">
-      <button onclick="checkPin()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-2xl transition">
-        잠금 해제
-      </button>
-      <p id="pinError" class="text-xs text-rose-500 hidden">PIN 번호가 올바르지 않습니다.</p>
-    </div>
-  </div>
-
-  <!-- 대시보드 본문 -->
-  <div class="max-w-7xl mx-auto space-y-6">
+<body class="bg-[#F5F5F7] text-[#1D1D1F] min-h-screen p-6 md:p-10 antialiased">
+  <div class="max-w-5xl mx-auto space-y-8">
     
-    <!-- 헤더 -->
-    <header class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <!-- Apple 헤더 -->
+    <header class="flex justify-between items-end pb-2 border-b border-black/5">
       <div>
-        <h1 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
-          📊 AI 프라이빗 대시보드
-          <span id="syncStatus" class="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-normal">연결 중...</span>
-        </h1>
-        <p class="text-slate-500 text-sm mt-1">자연어로 대시보드를 실시간 조작하세요.</p>
+        <h1 class="text-3xl font-semibold tracking-tight text-[#1D1D1F]">Dashboard</h1>
+        <p class="text-xs text-[#86868B] mt-1 font-medium">프로젝트 타임라인 & 체크리스트</p>
       </div>
-      <!-- 🔑 Gemini API 키 입력 영역 -->
-      <div class="flex items-center gap-2 w-full md:w-auto">
-        <input type="password" id="geminiKeyInput" placeholder="Gemini API Key 입력" 
-               class="px-3 py-2 border rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300 w-full md:w-48">
-        <button onclick="saveGeminiKey()" class="bg-slate-800 hover:bg-slate-700 text-white text-xs px-3 py-2 rounded-xl transition whitespace-nowrap">키 저장</button>
-        <button onclick="lockApp()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-2 rounded-xl transition flex items-center gap-1.5 whitespace-nowrap">
-          <i class="fa-solid fa-lock"></i> 잠그기
-        </button>
+      <div id="status-badge" class="text-xs px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 font-medium border border-emerald-200/60">
+        ● DB 연결 준비됨
       </div>
     </header>
 
-    <!-- 자연어 입력 바 -->
-    <section class="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 p-[2px] rounded-2xl shadow-md">
-      <div class="bg-white p-4 rounded-[14px] flex flex-col md:flex-row gap-3">
-        <div class="relative flex-1">
-          <i class="fa-solid fa-wand-magic-sparkles absolute left-4 top-3.5 text-indigo-400"></i>
-          <input type="text" id="promptInput" 
-                 placeholder="예: '웹 개편 프로젝트에 메인 UI 디자인 추가해줘', 'DB 마이그레이션 완료 처리해줘'" 
-                 class="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-xl text-sm border-none focus:ring-2 focus:ring-indigo-400 outline-none"
-                 onkeypress="if(event.key === 'Enter') processPrompt()">
-        </div>
-        <button id="submitBtn" onclick="processPrompt()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium px-6 py-3 rounded-xl transition flex items-center justify-center gap-2">
-          <span>명령 실행</span>
-          <i class="fa-solid fa-paper-plane text-xs"></i>
-        </button>
-      </div>
-    </section>
-
-    <!-- KPI 카드 영역 (유지) -->
-    <section class="grid grid-cols-2 md:grid-cols-4 gap-4">
-      <div class="bg-blue-50 border border-blue-100 p-5 rounded-2xl">
-        <span class="text-blue-600 text-sm font-semibold">전체 업무</span>
-        <div id="kpiTotal" class="text-3xl font-extrabold text-blue-900 mt-2">0</div>
-      </div>
-      <div class="bg-amber-50 border border-amber-100 p-5 rounded-2xl">
-        <span class="text-amber-600 text-sm font-semibold">진행 중</span>
-        <div id="kpiInProgress" class="text-3xl font-extrabold text-amber-900 mt-2">0</div>
-      </div>
-      <div class="bg-emerald-50 border border-emerald-100 p-5 rounded-2xl">
-        <span class="text-emerald-600 text-sm font-semibold">완료</span>
-        <div id="kpiCompleted" class="text-3xl font-extrabold text-emerald-900 mt-2">0</div>
-      </div>
-      <div class="bg-rose-50 border border-rose-100 p-5 rounded-2xl">
-        <span class="text-rose-600 text-sm font-semibold">마감 임박 (D-3 이내)</span>
-        <div id="kpiImpending" class="text-3xl font-extrabold text-rose-900 mt-2">0</div>
-      </div>
-    </section>
-
-    <!-- 차트 영역 -->
-    <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-        <h3 class="text-slate-700 font-bold mb-4 text-sm flex items-center gap-2">
-          <i class="fa-solid fa-chart-pie text-indigo-400"></i> 상태별 현황
-        </h3>
-        <div class="h-52 flex justify-center items-center">
-          <canvas id="statusChart"></canvas>
-        </div>
-      </div>
-      <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-        <h3 class="text-slate-700 font-bold mb-4 text-sm flex items-center gap-2">
-          <i class="fa-solid fa-chart-simple text-indigo-400"></i> 우선순위별 현황
-        </h3>
-        <div class="h-52 flex justify-center items-center">
-          <canvas id="priorityChart"></canvas>
+    <!-- 상단: Apple 스타일 가로 한 줄 타임라인 -->
+    <section class="glass-card rounded-3xl p-7">
+      <h2 class="text-xs font-semibold text-[#86868B] tracking-wider uppercase mb-6">Project Timeline</h2>
+      <div class="relative my-4">
+        <div class="absolute top-1/2 left-0 right-0 h-[2px] bg-black/5 -translate-y-1/2"></div>
+        <div id="timeline-container" class="relative z-10 flex justify-around items-center overflow-x-auto py-2">
+          <!-- JS에서 타임라인 노드 자동 생성 -->
         </div>
       </div>
     </section>
 
-    <!-- 📦 프로젝트별 박스 (체크리스트) 영역 -->
-    <section>
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
-          <i class="fa-solid fa-cubes text-indigo-500"></i> 프로젝트별 업무 박스
-        </h3>
+    <!-- 하단: 세부 정보 및 체크리스트 -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      <!-- 프로젝트 카드 -->
+      <div class="glass-card rounded-3xl p-7 flex flex-col justify-between">
+        <div>
+          <span id="proj-category" class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-black/5 text-[#515154]"></span>
+          <h3 id="proj-title" class="text-2xl font-semibold tracking-tight mt-4 text-[#1D1D1F]"></h3>
+          <p id="proj-date" class="text-xs text-[#86868B] mt-2 font-medium"></p>
+        </div>
+        <div class="mt-8 pt-6 border-t border-black/5">
+          <div class="flex justify-between text-xs font-medium mb-2">
+            <span class="text-[#86868B]">진행률</span>
+            <span id="proj-progress-text" class="text-[#0071E3] font-semibold">0%</span>
+          </div>
+          <div class="w-full bg-black/5 h-2 rounded-full overflow-hidden">
+            <div id="proj-progress-bar" class="bg-[#0071E3] h-full transition-all duration-500 ease-out" style="width: 0%"></div>
+          </div>
+        </div>
       </div>
-      <!-- 동적으로 카드들이 생성되는 그리드 컨테이너 -->
-      <div id="projectCardsContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- JS로 동적 생성됨 -->
-      </div>
-    </section>
 
+      <!-- 체크리스트 카드 -->
+      <div class="md:col-span-2 glass-card rounded-3xl p-7">
+        <h3 class="text-base font-semibold text-[#1D1D1F] mb-4 tracking-tight">Checklist</h3>
+        
+        <form id="task-form" class="flex gap-2 mb-6">
+          <input type="text" id="task-input" placeholder="새로운 할 일 추가..." required
+            class="flex-1 bg-white border border-black/10 rounded-2xl px-4 py-2.5 text-sm text-[#1D1D1F] focus:outline-none focus:ring-2 focus:ring-[#0071E3]/20 focus:border-[#0071E3] transition-all">
+          <button type="submit" class="bg-[#0071E3] hover:bg-[#0077ED] text-white px-5 py-2.5 rounded-2xl text-sm font-medium transition-all shadow-sm">
+            추가
+          </button>
+        </form>
+
+        <div id="task-list" class="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+          <!-- JS에서 체크리스트 목록 생성 -->
+        </div>
+      </div>
+
+    </section>
   </div>
 
   <script>
-    // ⚙️ DB 접속 정보 및 PIN 번호 고정 세팅
-    const CONFIG = {
-      MY_PIN: "0410",                                            // 🔒 비밀번호 4자리
-      SUPABASE_URL: "https://flyjpdjlpiazdqnewrub.supabase.co",   // 🌐 Supabase URL
-      SUPABASE_ANON: "sb_publishable_xEsBEYX5vwGK9-XKKYj7bg_3DE6txaK", // 🔑 Supabase Key
-      DB_EMAIL: "not@email.com",                                 // 📧 DB 계정
-      DB_PASS: "123456"                                          // 🔐 DB 비밀번호
-    };
-
-    let dashboardState = {
-      kpis: { total: 0, inProgress: 0, completed: 0, impending: 0 },
-      tasks: [],
-      chartData: { byStatus: { "대기": 0, "진행중": 0, "완료": 0 }, byPriority: { "높음": 0, "보통": 0, "낮음": 0 } }
-    };
+    // Supabase 정보 설정 (Supabase 대시보드의 Settings -> API에서 확인)
+    const SUPABASE_URL = "https://flyjpdjlpiazdqnewrub.supabase.co";
+    const SUPABASE_KEY = "sb_publishable_xEsBEYX5vwGK9-XKKYj7bg_3DE6txaK";
 
     let supabaseClient = null;
-    let currentUser = null;
-    let statusChartInstance = null;
-    let priorityChartInstance = null;
+    if (SUPABASE_URL !== "https://flyjpdjlpiazdqnewrub.supabase.co") {
+      supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
 
-    const pastelColors = { blue: '#A8DADC', pink: '#FFB7B2', yellow: '#FFE5B4', green: '#B5EAD7', purple: '#C7CEEA', gray: '#E2E8F0' };
+    let projects = [];
+    let selectedId = null;
 
-    window.onload = () => {
-      const savedKey = localStorage.getItem('gemini_api_key');
-      if (savedKey) document.getElementById('geminiKeyInput').value = savedKey;
+    async function init() {
+      if (supabaseClient) {
+        document.getElementById('status-badge').innerText = '● Supabase 실시간 동기화중';
+        await fetchProjects();
+      } else {
+        document.getElementById('status-badge').className = 'text-xs px-3 py-1 rounded-full bg-amber-50 text-amber-600 font-medium border border-amber-200/60';
+        document.getElementById('status-badge').innerText = '● 데모 모드 (URL/Key 미설정)';
+        // 데모용 로컬 데이터
+        projects = [
+          { id: "1", title: "Apple 대시보드 테마", category: "디자인", start_date: "2026-09-21", end_date: "2026-09-25", tasks: [{ id: "t1", text: "Supabase Key 입력하기", completed: false }] },
+          { id: "2", title: "배포 환경 테스트", category: "개발", start_date: "2026-09-26", end_date: "2026-09-30", tasks: [{ id: "t2", text: "GitHub Pages 등록", completed: false }] }
+        ];
+        selectedId = projects[0].id;
+        render();
+      }
+    }
 
-      if (localStorage.getItem('app_unlocked') === 'true') {
-        document.getElementById('lockScreen').classList.add('hidden');
-        initApp();
+    async function fetchProjects() {
+      const { data: projData } = await supabaseClient.from('projects').select('*').order('start_date', { ascending: true });
+      const { data: taskData } = await supabaseClient.from('tasks').select('*');
+
+      if (projData) {
+        projects = projData.map(p => ({
+          ...p,
+          tasks: taskData ? taskData.filter(t => t.project_id === p.id) : []
+        }));
+        if (projects.length > 0 && !selectedId) {
+          selectedId = projects[0].id;
+        }
+        render();
+      }
+    }
+
+    function render() {
+      const container = document.getElementById('timeline-container');
+      container.innerHTML = '';
+
+      projects.forEach(p => {
+        const isSelected = p.id === selectedId;
+        const btn = document.createElement('button');
+        btn.className = 'flex flex-col items-center group focus:outline-none';
+        btn.onclick = () => { selectedId = p.id; render(); };
+        btn.innerHTML = `
+          <span class="text-[11px] font-medium mb-1.5 transition-colors ${isSelected ? 'text-[#0071E3] font-semibold' : 'text-[#86868B]'}">${p.start_date}</span>
+          <div class="w-4 h-4 rounded-full border-2 transition-all ${isSelected ? 'bg-[#0071E3] border-[#0071E3] scale-125 shadow-md shadow-blue-500/20' : 'bg-white border-black/20 group-hover:border-black/40'}"></div>
+          <span class="text-xs mt-2.5 px-3 py-1 rounded-full font-medium transition-all ${isSelected ? 'bg-[#0071E3] text-white shadow-sm' : 'bg-white/80 text-[#515154] border border-black/5 group-hover:bg-white'}">${p.title}</span>
+        `;
+        container.appendChild(btn);
+      });
+
+      const current = projects.find(p => p.id === selectedId);
+      if (!current) return;
+
+      document.getElementById('proj-title').innerText = current.title;
+      document.getElementById('proj-category').innerText = current.category;
+      document.getElementById('proj-date').innerText = `기간: ${current.start_date} ~ ${current.end_date}`;
+
+      const total = current.tasks.length;
+      const done = current.tasks.filter(t => t.completed).length;
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+
+      document.getElementById('proj-progress-text').innerText = `${pct}%`;
+      document.getElementById('proj-progress-bar').style.width = `${pct}%`;
+
+      const taskList = document.getElementById('task-list');
+      taskList.innerHTML = '';
+      current.tasks.forEach(t => {
+        const div = document.createElement('div');
+        div.className = 'flex items-center justify-between p-3.5 rounded-2xl bg-white/80 border border-black/5 shadow-2xs hover:border-black/10 transition-all';
+        div.innerHTML = `
+          <label class="flex items-center gap-3 cursor-pointer flex-1">
+            <input type="checkbox" ${t.completed ? 'checked' : ''} onchange="toggleTask('${t.id}', ${t.completed})" 
+              class="w-4 h-4 rounded-md text-[#0071E3] focus:ring-0 border-black/20 accent-[#0071E3]">
+            <span class="text-sm font-medium ${t.completed ? 'line-through text-[#86868B]' : 'text-[#1D1D1F]'}">${t.text}</span>
+          </label>
+          <button onclick="deleteTask('${t.id}')" class="text-xs text-[#86868B] hover:text-rose-500 font-medium px-2 py-1">삭제</button>
+        `;
+        taskList.appendChild(div);
+      });
+    }
+
+    async function toggleTask(taskId, currentStatus) {
+      if (supabaseClient) {
+        await supabaseClient.from('tasks').update({ completed: !currentStatus }).eq('id', taskId);
+        await fetchProjects();
+      } else {
+        const current = projects.find(p => p.id === selectedId);
+        const task = current.tasks.find(t => t.id === taskId);
+        if (task) task.completed = !task.completed;
+        render();
+      }
+    }
+
+    async function deleteTask(taskId) {
+      if (supabaseClient) {
+        await supabaseClient.from('tasks').delete().eq('id', taskId);
+        await fetchProjects();
+      } else {
+        const current = projects.find(p => p.id === selectedId);
+        current.tasks = current.tasks.filter(t => t.id !== taskId);
+        render();
+      }
+    }
+
+    document.getElementById('task-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const input = document.getElementById('task-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      if (supabaseClient) {
+        await supabaseClient.from('tasks').insert([{ project_id: selectedId, text, completed: false }]);
+        input.value = '';
+        await fetchProjects();
+      } else {
+        const current = projects.find(p => p.id === selectedId);
+        current.tasks.push({ id: Date.now().toString(), text, completed: false });
+        input.value = '';
+        render();
       }
     };
 
-    function saveGeminiKey() {
-      const key = document.getElementById('geminiKeyInput').value.trim();
-      if (key) {
-        localStorage.setItem('gemini_api_key', key);
-        alert('Gemini API 키가 안전하게 브라우저에 저장되었습니다!');
-      } else {
-        alert('API 키를 입력해주세요.');
-      }
-    }
-
-    function checkPin() {
-      const pin = document.getElementById('pinInput').value;
-      if (pin === CONFIG.MY_PIN) {
-        localStorage.setItem('app_unlocked', 'true');
-        document.getElementById('lockScreen').classList.add('hidden');
-        document.getElementById('pinError').classList.add('hidden');
-        initApp();
-      } else {
-        document.getElementById('pinError').classList.remove('hidden');
-        document.getElementById('pinInput').value = '';
-      }
-    }
-
-    function lockApp() {
-      localStorage.removeItem('app_unlocked');
-      document.getElementById('lockScreen').classList.remove('hidden');
-      document.getElementById('pinInput').value = '';
-    }
-
-    async function initApp() {
-      await connectSupabase();
-      renderDashboard(dashboardState);
-    }
-
-    async function connectSupabase() {
-      try {
-        const { createClient } = supabase;
-        supabaseClient = createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON);
-
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
-          email: CONFIG.DB_EMAIL,
-          password: CONFIG.DB_PASS
-        });
-
-        if (error) throw error;
-
-        currentUser = data.user;
-        updateSyncStatus("실시간 DB 연결됨", "bg-emerald-100 text-emerald-700");
-        await fetchFromDb();
-
-      } catch (err) {
-        console.error("Supabase 연결 에러:", err);
-        updateSyncStatus("DB 연결 실패", "bg-rose-100 text-rose-700");
-      }
-    }
-
-    function updateSyncStatus(text, bgClass) {
-      const statusEl = document.getElementById('syncStatus');
-      statusEl.innerText = text;
-      statusEl.className = `text-xs px-2.5 py-1 rounded-full font-normal ${bgClass}`;
-    }
-
-    async function fetchFromDb() {
-      if (!supabaseClient || !currentUser) return;
-      const { data } = await supabaseClient
-        .from('user_dashboards')
-        .select('state')
-        .eq('user_id', currentUser.id)
-        .single();
-
-      if (data && data.state) {
-        dashboardState = data.state;
-        renderDashboard(dashboardState);
-      }
-    }
-
-    async function saveToDb(newState) {
-      if (!supabaseClient || !currentUser) return;
-      await supabaseClient.from('user_dashboards').upsert({
-        user_id: currentUser.id,
-        state: newState,
-        updated_at: new Date().toISOString()
-      });
-    }
-
-    // 🔄 상태 및 수치 재계산
-    function recalculateState() {
-      const tasks = dashboardState.tasks || [];
-      const total = tasks.length;
-      const completed = tasks.filter(t => t.status === '완료').length;
-      const inProgress = tasks.filter(t => t.status === '진행중').length;
-
-      // 마감임박 (D-3 이내 미완료)
-      const impending = tasks.filter(t => {
-        if (t.status === '완료') return false;
-        if (!t.dDay) return false;
-        const d = String(t.dDay).toUpperCase();
-        return d === 'D-DAY' || d === 'D-0' || d === 'D-1' || d === 'D-2' || d === 'D-3';
-      }).length;
-
-      dashboardState.kpis = { total, inProgress, completed, impending };
-
-      const byStatus = { "대기": 0, "진행중": 0, "완료": 0 };
-      const byPriority = { "높음": 0, "보통": 0, "낮음": 0 };
-
-      tasks.forEach(t => {
-        const s = t.status || '대기';
-        const p = t.priority || '보통';
-        byStatus[s] = (byStatus[s] || 0) + 1;
-        byPriority[p] = (byPriority[p] || 0) + 1;
-      });
-
-      dashboardState.chartData = { byStatus, byPriority };
-    }
-
-    // 🗳️ 체크박스 클릭 토글 이벤트
-    async function toggleTaskStatus(taskId) {
-      const task = dashboardState.tasks.find(t => String(t.id) === String(taskId));
-      if (task) {
-        task.status = (task.status === '완료') ? '진행중' : '완료';
-        recalculateState();
-        renderDashboard(dashboardState);
-        await saveToDb(dashboardState);
-      }
-    }
-
-    // 🖥️ 렌더링 메인 함수
-    function renderDashboard(state) {
-      // 1. KPI
-      document.getElementById('kpiTotal').innerText = state.kpis.total || 0;
-      document.getElementById('kpiInProgress').innerText = state.kpis.inProgress || 0;
-      document.getElementById('kpiCompleted').innerText = state.kpis.completed || 0;
-      document.getElementById('kpiImpending').innerText = state.kpis.impending || 0;
-
-      // 2. 프로젝트별 그룹화 & 카드 박스 생성
-      const groupedProjects = {};
-      (state.tasks || []).forEach((t, idx) => {
-        if (!t.id) t.id = 'task_' + idx + '_' + Date.now();
-        const projName = t.project || t.projectName || '기타 프로젝트';
-        if (!groupedProjects[projName]) groupedProjects[projName] = [];
-        groupedProjects[projName].push(t);
-      });
-
-      const container = document.getElementById('projectCardsContainer');
-      container.innerHTML = '';
-
-      const projectNames = Object.keys(groupedProjects);
-
-      if (projectNames.length === 0) {
-        container.innerHTML = `
-          <div class="col-span-full bg-white p-12 rounded-2xl text-center text-slate-400 border border-slate-100">
-            <i class="fa-regular fa-folder-open text-4xl mb-3 block"></i>
-            등록된 프로젝트가 없습니다. 위 입력창에 자연어로 업무를 추가해보세요!
-          </div>`;
-      } else {
-        projectNames.forEach(proj => {
-          const tasks = groupedProjects[proj];
-          const completedCount = tasks.filter(t => t.status === '완료').length;
-          const progressPercent = Math.round((completedCount / tasks.length) * 100);
-
-          const card = document.createElement('div');
-          card.className = 'bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4 flex flex-col justify-between';
-
-          let taskListHtml = '';
-          tasks.forEach(t => {
-            const isDone = t.status === '완료';
-            const taskTitle = t.task || t.taskName || t.title || '제목 없음';
-            const priorityBadge = t.priority === '높음' ? 'bg-rose-100 text-rose-700' : t.priority === '보통' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600';
-
-            taskListHtml += `
-              <li class="flex items-start justify-between gap-3 p-2.5 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100">
-                <label class="flex items-start gap-3 cursor-pointer flex-1 min-w-0">
-                  <input type="checkbox" ${isDone ? 'checked' : ''} onchange="toggleTaskStatus('${t.id}')" 
-                         class="mt-1 w-4 h-4 text-indigo-600 rounded focus:ring-indigo-400 cursor-pointer accent-indigo-600">
-                  <div class="min-w-0 flex-1">
-                    <p class="text-sm font-medium ${isDone ? 'line-through text-slate-400' : 'text-slate-800'} break-words">
-                      ${taskTitle}
-                    </p>
-                    <div class="flex items-center gap-2 mt-1 text-[11px] text-slate-400">
-                      <span><i class="fa-regular fa-calendar text-xs"></i> ${t.deadline || '-'}</span>
-                      ${t.memo ? `<span class="truncate">| ${t.memo}</span>` : ''}
-                    </div>
-                  </div>
-                </label>
-                <div class="flex flex-col items-end gap-1 flex-shrink-0">
-                  <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">${t.dDay || 'D-Day'}</span>
-                  <span class="text-[10px] px-2 py-0.5 rounded-full ${priorityBadge}">${t.priority || '보통'}</span>
-                </div>
-              </li>
-            `;
-          });
-
-          card.innerHTML = `
-            <div>
-              <div class="flex justify-between items-center mb-3">
-                <h4 class="font-bold text-slate-900 text-base flex items-center gap-2">
-                  <i class="fa-solid fa-folder text-amber-400"></i> ${proj}
-                </h4>
-                <span class="text-xs font-semibold text-slate-500">${completedCount}/${tasks.length} 완료</span>
-              </div>
-              <!-- 진척도 바 -->
-              <div class="w-full bg-slate-100 rounded-full h-2 mb-4 overflow-hidden">
-                <div class="bg-indigo-500 h-2 rounded-full transition-all duration-500" style="width: ${progressPercent}%"></div>
-              </div>
-              <ul class="space-y-1">
-                ${taskListHtml}
-              </ul>
-            </div>
-          `;
-          container.appendChild(card);
-        });
-      }
-
-      // 3. 차트 렌더링
-      renderCharts(state.chartData);
-    }
-
-    function renderCharts(chartData) {
-      const ctxStatus = document.getElementById('statusChart').getContext('2d');
-      if (statusChartInstance) statusChartInstance.destroy();
-      statusChartInstance = new Chart(ctxStatus, {
-        type: 'doughnut',
-        data: {
-          labels: Object.keys(chartData.byStatus),
-          datasets: [{ data: Object.values(chartData.byStatus), backgroundColor: [pastelColors.yellow, pastelColors.blue, pastelColors.green], borderWidth: 0 }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
-      });
-
-      const ctxPriority = document.getElementById('priorityChart').getContext('2d');
-      if (priorityChartInstance) priorityChartInstance.destroy();
-      priorityChartInstance = new Chart(ctxPriority, {
-        type: 'bar',
-        data: {
-          labels: Object.keys(chartData.byPriority),
-          datasets: [{ data: Object.values(chartData.byPriority), backgroundColor: [pastelColors.pink, pastelColors.purple, pastelColors.gray], borderRadius: 8 }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-      });
-    }
-
-    // 🤖 AI 명령어 실행
-    async function processPrompt() {
-      const apiKey = localStorage.getItem('gemini_api_key') || document.getElementById('geminiKeyInput').value.trim();
-      const promptInput = document.getElementById('promptInput');
-      const userPrompt = promptInput.value.trim();
-
-      if (!apiKey) {
-        alert('우측 상단에 Gemini API 키를 입력하고 [키 저장]을 눌러주세요!');
-        return;
-      }
-      if (!userPrompt) return;
-
-      const submitBtn = document.getElementById('submitBtn');
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> 처리 중...`;
-
-      const today = new Date().toISOString().split('T')[0];
-
-      const systemInstruction = `
-너는 프로젝트 관리 대시보드의 상태(State)를 업데이트하는 AI 엔진이다.
-사용자의 자연어 요청, 현재 대시보드 JSON 상태, 그리고 오늘 날짜 정보를 받는다.
-
-[역할 및 규칙]
-1. 입력받은 기존 대시보드 JSON 데이터를 바탕으로 사용자의 자연어 명령을 반영하여 업데이트된 새 JSON 전체를 생성해라.
-2. 각 task 객체는 반드시 아래 속성명을 완벽히 지켜라:
-   - id: 유니크 스트링 (예: "task_123")
-   - project: 프로젝트 이름 (예: "웹사이트 개편")
-   - task: 업무 제목 (예: "메인 UI 디자인 수정을 검토하기")
-   - deadline: 마감일 (YYYY-MM-DD)
-   - dDay: D-Day (예: "D-2", "D-Day", "D+1")
-   - priority: 우선순위 ("높음", "보통", "낮음")
-   - status: 상태 ("대기", "진행중", "완료")
-   - memo: 추가 메모
-3. D-Day는 기준 날짜(${today})와 마감일(deadline)의 차이를 정확히 계산해라.
-4. kpis와 chartData는 tasks 상태 변화에 맞춰 정확하게 자동 재계산해라.
-5. 반드시 마크다운 없이 순수 JSON 객체만 반환해라.
-      `;
-
-      const payload = {
-        systemInstruction: { parts: [{ text: systemInstruction }] },
-        contents: [{ role: "user", parts: [{ text: `[오늘 날짜]: ${today}\n[현재 상태]: ${JSON.stringify(dashboardState)}\n[사용자 명령]: ${userPrompt}` }] }],
-        generationConfig: { responseMimeType: "application/json" }
-      };
-
-      try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        const data = await response.json();
-        if (data.error) throw new Error(data.error.message);
-
-        const newDashboardState = JSON.parse(data.candidates[0].content.parts[0].text);
-
-        dashboardState = newDashboardState;
-        recalculateState();
-        renderDashboard(dashboardState);
-        await saveToDb(dashboardState);
-        promptInput.value = '';
-
-      } catch (err) {
-        alert('오류 발생: ' + err.message);
-        console.error(err);
-      } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = `<span>명령 실행</span><i class="fa-solid fa-paper-plane text-xs"></i>`;
-      }
-    }
+    init();
   </script>
 </body>
 </html>
